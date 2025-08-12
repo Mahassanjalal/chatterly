@@ -1,0 +1,53 @@
+services:
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - NEXT_PUBLIC_API_URL=http://backend:4000
+  #     - NEXT_PUBLIC_SOCKET_URL=ws://backend:4000
+  #     - PORT=3000
+  #     - HOSTNAME=0.0.0.0
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "4000:4000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - MONGODB_URI=mongodb://mongodb:27017/chatterly
+  #     - REDIS_URL=redis://redis:6379
+  #     - JWT_SECRET=your-super-secret-jwt-key
+  #     - CORS_ORIGIN=http://localhost:3000
+  #   depends_on:
+  #     - mongodb
+  #     - redis
+  #   restart: unless-stopped
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  redis_data:
