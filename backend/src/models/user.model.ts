@@ -8,7 +8,7 @@ export const userSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(100),
   gender: z.enum(['male', 'female', 'other']).optional(),
-  preferredGender: z.enum(['male', 'female', 'both']).default('both'),
+  type: z.enum(['free', 'pro']).default('free'),
 })
 
 export type UserInput = z.infer<typeof userSchema>
@@ -19,7 +19,7 @@ export interface IUser extends Document {
   email: string
   password: string
   gender?: 'male' | 'female' | 'other'
-  preferredGender: 'male' | 'female' | 'both'
+  type: 'free' | 'pro'
   status: 'active' | 'suspended' | 'banned'
   role: 'user' | 'moderator' | 'admin'
   flags: {
@@ -73,10 +73,10 @@ const userMongooseSchema = new Schema<IUser>(
       enum: ['male', 'female', 'other'],
       required: false,
     },
-    preferredGender: {
+    type: {
       type: String,
-      enum: ['male', 'female', 'both'],
-      default: 'both',
+      enum: ['free', 'pro'],
+      default: 'free',
     },
     status: {
       type: String,

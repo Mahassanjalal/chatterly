@@ -3,6 +3,7 @@ import jwt, { SignOptions } from 'jsonwebtoken'
 import { User, userSchema } from '../models/user.model'
 import { appConfig } from '../config/env'
 import { AppError } from '../middleware/error'
+import { asyncHandler } from '../utils/asyncHandler'
 
 // Extend Request type to include user
 declare module 'express' {
@@ -21,8 +22,8 @@ const generateToken = (userId: string): string => {
   return jwt.sign({ id: userId }, appConfig.jwt.secret, signOptions)
 }
 
-export const signup = async (req: Request, res: Response) => {
-  const { name, email, password, gender, preferredGender } = await userSchema.parseAsync(req.body)
+export const signup = asyncHandler(async (req: Request, res: Response) => {
+  const { name, email, password, gender, type } = await userSchema.parseAsync(req.body)
 
   const existingUser = await User.findOne({ email })
   if (existingUser) {
@@ -34,7 +35,7 @@ export const signup = async (req: Request, res: Response) => {
     email, 
     password,
     gender,
-    preferredGender: preferredGender || 'both'
+    type: type || 'free'
   })
   await user.save()
 
@@ -47,21 +48,16 @@ export const signup = async (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       gender: user.gender,
-      preferredGender: user.preferredGender,
+      type: user.type,
     },
   })
-}
+})
 
-export const login = async (req: Request, res: Response) => {
+export const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body
 
   const user = await User.findOne({ email })
-  if (!user) {
-    throw new AppError(401, 'Invalid credentials')
-  }
-
-  const isPasswordValid = await user.comparePassword(password)
-  if (!isPasswordValid) {
+  if (!user || !(await user.comparePassword(password))) {
     throw new AppError(401, 'Invalid credentials')
   }
 
@@ -74,16 +70,24 @@ export const login = async (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       gender: user.gender,
-      preferredGender: user.preferredGender,
+      type: user.type,
     },
   })
-}
+})
 
-export const me = async (req: Request, res: Response) => {
+export const me = asyncHandler(async (req: Request, res: Response) => {
   const user = await User.findById(req.user?._id).select('-password')
   if (!user) {
     throw new AppError(404, 'User not found')
   }
-
-  res.json(user)
-}
+  
+  res.json({
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      gender: user.gender,
+      type: user.type,
+    }
+  })
+})

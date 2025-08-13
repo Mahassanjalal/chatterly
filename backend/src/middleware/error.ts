@@ -22,10 +22,21 @@ export const errorHandler = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   next: NextFunction
 ) => {
-  logger.error('Error:', {
-    message: err.message,
-    stack: appConfig.isDevelopment ? err.stack : undefined,
-  })
+  // Don't log known operational errors
+  if (!(err instanceof AppError) || !err.isOperational) {
+    logger.error('Error:', {
+      message: err.message,
+      stack: appConfig.isDevelopment ? err.stack : undefined,
+      url: req.originalUrl,
+      method: req.method,
+      ip: req.ip,
+    })
+  }
+
+  // Don't send response if headers already sent
+  if (res.headersSent) {
+    return next(err)
+  }
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
@@ -55,8 +66,22 @@ export const errorHandler = (
 
   // MongoDB duplicate key error
   if ((err as any).code === 11000) {
+    const field = Object.keys((err as any).keyValue)[0]
     return res.status(409).json({
-      error: 'Duplicate value error',
+      error: `${field} already exists`,
+    })
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      error: 'Invalid token',
+    })
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      error: 'Token expired',
     })
   }
 

@@ -12,6 +12,7 @@ import { SocketService } from './services/socket.service'
 
 // Import routes
 import authRoutes from './routes/auth.routes'
+import profileRoutes from './routes/profile.routes'
 
 // Create Express app
 const app = express()
@@ -31,7 +32,8 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // Routes
-app.use('/auth', authRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/profile', profileRoutes)
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -63,13 +65,14 @@ const start = async () => {
 start()
 
 // Handle unhandled rejections
-process.on('unhandledRejection', (error) => {
-  logger.error('Unhandled rejection:', error)
-  process.exit(1)
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  // Application specific logging, throwing an error, or other logic here
 })
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception:', error)
+  logger.error('Uncaught Exception:', error)
+  // Graceful shutdown
   process.exit(1)
 })

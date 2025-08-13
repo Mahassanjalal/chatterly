@@ -29,13 +29,29 @@ export class MatchingService {
         throw new Error('User not found');
       }
 
+      // Determine preferences based on user type
+      let finalPreference: 'male' | 'female' | 'both' | undefined;
+      
+      if (user.type === 'free') {
+        // Free users can only choose 'both' or same gender
+        if (preferredGender === 'both' || preferredGender === user.gender) {
+          finalPreference = preferredGender;
+        } else {
+          // Default to 'both' if they try to select opposite gender
+          finalPreference = 'both';
+        }
+      } else {
+        // Pro users can choose any preference
+        finalPreference = preferredGender || 'both';
+      }
+
       // Create matching user object
       const matchingUser: MatchingUser = {
         userId,
         socketId,
         user,
         preferences: {
-          gender: preferredGender || user.preferredGender || 'both',
+          gender: finalPreference || 'both',
         },
         joinedAt: new Date(),
       };
@@ -73,13 +89,72 @@ export class MatchingService {
   }
 
   private findMatch(newUser: MatchingUser): MatchingUser | null {
-    // Find compatible users in the waiting queue
+    // Collect all compatible users
+    const compatibleUsers: MatchingUser[] = [];
+    
     for (const [userId, waitingUser] of this.waitingUsers) {
       if (this.areUsersCompatible(newUser, waitingUser)) {
-        return waitingUser;
+        compatibleUsers.push(waitingUser);
       }
     }
-    return null;
+
+    if (compatibleUsers.length === 0) {
+      return null;
+    }
+
+    // Apply weighted matching based on user types
+    return this.selectWeightedMatch(newUser, compatibleUsers);
+  }
+
+  private selectWeightedMatch(newUser: MatchingUser, compatibleUsers: MatchingUser[]): MatchingUser {
+    // If only one compatible user, return them
+    if (compatibleUsers.length === 1) {
+      return compatibleUsers[0];
+    }
+
+    // Separate users by gender preference matching
+    const sameGenderMatches: MatchingUser[] = [];
+    const oppositeGenderMatches: MatchingUser[] = [];
+    const otherMatches: MatchingUser[] = [];
+
+    for (const user of compatibleUsers) {
+      if (newUser.user.gender && user.user.gender) {
+        if (newUser.user.gender === user.user.gender) {
+          sameGenderMatches.push(user);
+        } else {
+          oppositeGenderMatches.push(user);
+        }
+      } else {
+        otherMatches.push(user);
+      }
+    }
+
+    // Apply weighted selection based on user type
+    const random = Math.random();
+    
+    if (newUser.user.type === 'free') {
+      // Free users: 80% same gender, 20% opposite gender
+      if (random < 0.8 && sameGenderMatches.length > 0) {
+        return sameGenderMatches[Math.floor(Math.random() * sameGenderMatches.length)];
+      } else if (oppositeGenderMatches.length > 0) {
+        return oppositeGenderMatches[Math.floor(Math.random() * oppositeGenderMatches.length)];
+      }
+    } else {
+      // Pro users: 80% opposite gender, 20% same gender
+      if (random < 0.8 && oppositeGenderMatches.length > 0) {
+        return oppositeGenderMatches[Math.floor(Math.random() * oppositeGenderMatches.length)];
+      } else if (sameGenderMatches.length > 0) {
+        return sameGenderMatches[Math.floor(Math.random() * sameGenderMatches.length)];
+      }
+    }
+
+    // Fallback to any compatible user
+    if (otherMatches.length > 0) {
+      return otherMatches[Math.floor(Math.random() * otherMatches.length)];
+    }
+
+    // Final fallback
+    return compatibleUsers[Math.floor(Math.random() * compatibleUsers.length)];
   }
 
   private areUsersCompatible(user1: MatchingUser, user2: MatchingUser): boolean {
