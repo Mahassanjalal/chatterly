@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { clearAuthData, isAuthenticated } from "../utils/auth";
+import Footer from "../components/Footer";
 
 export default function LandingPage() {
   const [userCount, setUserCount] = useState(73267);
@@ -157,6 +158,8 @@ export default function LandingPage() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

@@ -1,0 +1,16 @@
+# Chatterly Robots.txt
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow private pages
+Disallow: /chat
+Disallow: /profile
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://chatterly.com/sitemap.xml
+
+# Crawl delay for bots
+Crawl-delay: 1
