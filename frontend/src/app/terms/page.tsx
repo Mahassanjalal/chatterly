@@ -21,7 +21,7 @@ export default function TermsOfService() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h2>
             <p className="text-gray-700 mb-4">
-              By accessing and using Chatterly ("the Service"), you accept and agree to be bound by the terms and 
+              By accessing and using Chatterly (&quot;the Service&quot;), you accept and agree to be bound by the terms and 
               provision of this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
           </section>
@@ -93,7 +93,7 @@ export default function TermsOfService() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Disclaimers and Limitation of Liability</h2>
             <p className="text-gray-700 mb-4">
-              THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND. WE DO NOT GUARANTEE 
+              THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND. WE DO NOT GUARANTEE 
               THE ACCURACY, RELIABILITY, OR AVAILABILITY OF THE SERVICE. WE ARE NOT RESPONSIBLE FOR THE CONDUCT OF 
               OTHER USERS OR ANY CONTENT SHARED THROUGH THE SERVICE.
             </p>
@@ -141,7 +141,7 @@ export default function TermsOfService() {
 
           <div className="mt-12 p-6 bg-purple-50 rounded-lg border border-purple-200">
             <p className="text-sm text-gray-600 mb-2">
-              <strong>Important Notice:</strong> By clicking "I Accept" or using the Service, you acknowledge that 
+              <strong>Important Notice:</strong> By clicking &quot;I Accept&quot; or using the Service, you acknowledge that 
               you have read, understood, and agree to be bound by these Terms of Service.
             </p>
           </div>

@@ -21,7 +21,7 @@ export default function PrivacyPolicy() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
             <p className="text-gray-700 mb-4">
-              Chatterly ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains 
+              Chatterly (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains 
               how we collect, use, disclose, and safeguard your information when you use our video chat service.
             </p>
             <p className="text-gray-700 mb-4">
@@ -161,7 +161,7 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-4">
               <li><strong>Access:</strong> Request a copy of your personal data</li>
               <li><strong>Rectification:</strong> Correct inaccurate information</li>
-              <li><strong>Erasure:</strong> Request deletion of your data ("right to be forgotten&quot;)</li>
+              <li><strong>Erasure:</strong> Request deletion of your data (&quot;right to be forgotten&quot;)</li>
               <li><strong>Portability:</strong> Receive your data in a portable format</li>
               <li><strong>Restriction:</strong> Limit how we use your data</li>
               <li><strong>Objection:</strong> Object to processing of your data</li>
@@ -228,7 +228,7 @@ export default function PrivacyPolicy() {
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-4">
               <li>Posting the new Privacy Policy on this page</li>
-              <li>Updating the "Last updated&quot; date</li>
+              <li>Updating the &quot;Last updated&quot; date</li>
               <li>Sending an email notification for material changes</li>
               <li>Displaying a prominent notice on the Service</li>
             </ul>

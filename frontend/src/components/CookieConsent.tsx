@@ -31,7 +31,7 @@ const CookieConsent = () => {
         <div className="text-sm text-gray-700">
           <p>
             We use cookies to enhance your experience, analyze site traffic, and for security purposes. 
-            By clicking "Accept", you agree to our use of cookies as described in our{" "}
+            By clicking &quot;Accept&quot;, you agree to our use of cookies as described in our{" "}
             <Link href="/privacy" className="text-purple-600 hover:underline font-medium">
               Privacy Policy
             </Link>.

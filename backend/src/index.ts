@@ -1,5 +1,6 @@
 import express from 'express'
 import http from 'http'
+import mongoose from 'mongoose'
 import helmet from 'helmet'
 import cors from 'cors'
 import compression from 'compression'
@@ -59,7 +60,7 @@ app.get('/health', (req, res) => {
 
 app.get('/health/ready', async (req, res) => {
   // Check DB connection
-  const isDbConnected = require('mongoose').connection.readyState === 1
+  const isDbConnected = mongoose.connection.readyState === 1
   
   if (isDbConnected) {
     res.json({ status: 'ready' })
