@@ -14,7 +14,11 @@ export const auth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '')
+    let token = req.header('Authorization')?.replace('Bearer ', '')
+
+    if (!token && req.cookies) {
+      token = req.cookies.token
+    }
 
     if (!token) {
       throw new AppError(401, 'Access token required')

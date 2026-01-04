@@ -161,7 +161,7 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-4">
               <li><strong>Access:</strong> Request a copy of your personal data</li>
               <li><strong>Rectification:</strong> Correct inaccurate information</li>
-              <li><strong>Erasure:</strong> Request deletion of your data ("right to be forgotten")</li>
+              <li><strong>Erasure:</strong> Request deletion of your data ("right to be forgotten&quot;)</li>
               <li><strong>Portability:</strong> Receive your data in a portable format</li>
               <li><strong>Restriction:</strong> Limit how we use your data</li>
               <li><strong>Objection:</strong> Object to processing of your data</li>
@@ -174,7 +174,7 @@ export default function PrivacyPolicy() {
               <li>Know if personal information is sold or disclosed</li>
               <li>Access your personal information</li>
               <li>Request deletion of personal information</li>
-              <li>Opt-out of the sale of personal information (we don't sell data)</li>
+              <li>Opt-out of the sale of personal information (we don&apos;t sell data)</li>
               <li>Non-discrimination for exercising your rights</li>
             </ul>
 
@@ -200,7 +200,7 @@ export default function PrivacyPolicy() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Children's Privacy</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Children&apos;s Privacy</h2>
             <p className="text-gray-700 mb-4">
               Our Service is not intended for users under 18 years of age. We do not knowingly collect personal 
               information from children under 18. If we discover that a child under 18 has provided us with personal 
@@ -228,7 +228,7 @@ export default function PrivacyPolicy() {
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-4">
               <li>Posting the new Privacy Policy on this page</li>
-              <li>Updating the "Last updated" date</li>
+              <li>Updating the "Last updated&quot; date</li>
               <li>Sending an email notification for material changes</li>
               <li>Displaying a prominent notice on the Service</li>
             </ul>

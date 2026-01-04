@@ -1,6 +1,6 @@
 "use client";
 
-import { getApiUrl, getAuthToken } from "@/utils/auth";
+import { apiRequest } from "@/utils/auth";
 import { useState } from "react";
 
 export default function PasswordChangeForm() {
@@ -43,17 +43,8 @@ export default function PasswordChangeForm() {
     }
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${getApiUrl()}/profile/password`, {
+      const response = await apiRequest('/profile/password', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           currentPassword: formData.currentPassword,
           newPassword: formData.newPassword,

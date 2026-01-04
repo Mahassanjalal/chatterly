@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import CookieConsent from "../components/CookieConsent";
 
 export const metadata: Metadata = {
   title: "Chatterly - Random Video Chat with Strangers Worldwide",
@@ -62,6 +63,7 @@ export default function RootLayout({
         <main className="relative z-10 flex flex-col items-center justify-center min-h-screen">
           {children}
         </main>
+        <CookieConsent />
       </body>
     </html>
   );

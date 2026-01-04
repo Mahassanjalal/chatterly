@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { clearAuthData, isAuthenticated } from "../utils/auth";
+import { logout as apiLogout, isAuthenticated } from "../utils/auth";
 import Footer from "../components/Footer";
 
 export default function LandingPage() {
@@ -30,8 +30,8 @@ export default function LandingPage() {
     }
   };
 
-  const logout = () => {
-    clearAuthData();
+  const logout = async () => {
+    await apiLogout();
     setIsLoggedIn(false);
     setUserCount(73267);
     router.push("/");

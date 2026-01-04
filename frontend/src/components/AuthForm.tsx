@@ -4,7 +4,14 @@ import React, { useState } from "react";
 
 interface AuthFormProps {
   type: "login" | "register";
-  onSubmit: (data: { email: string; password: string; name?: string; gender?: 'male' | 'female' | 'other'; userType?: 'free' | 'pro' }) => void;
+  onSubmit: (data: { 
+    email: string; 
+    password: string; 
+    name?: string; 
+    gender?: 'male' | 'female' | 'other'; 
+    userType?: 'free' | 'pro';
+    dateOfBirth?: string;
+  }) => void;
   loading?: boolean;
   error?: string;
 }
@@ -13,6 +20,7 @@ export default function AuthForm({ type, onSubmit, loading, error }: AuthFormPro
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
   const [userType, setUserType] = useState<'free' | 'pro'>('free');
 
@@ -23,7 +31,8 @@ export default function AuthForm({ type, onSubmit, loading, error }: AuthFormPro
       password, 
       name: type === "register" ? name : undefined,
       gender: type === "register" ? gender : undefined,
-      userType: type === "register" ? userType : undefined
+      userType: type === "register" ? userType : undefined,
+      dateOfBirth: type === "register" ? dateOfBirth : undefined
     });
   };
 
@@ -36,16 +45,29 @@ export default function AuthForm({ type, onSubmit, loading, error }: AuthFormPro
         {type === "login" ? "Welcome Back!" : "Create Your Account"}
       </h2>
       {type === "register" && (
-        <input
-          type="text"
-          placeholder="Full Name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          className="input-animated"
-          required
-          minLength={2}
-          maxLength={50}
-        />
+        <>
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="input-animated"
+            required
+            minLength={2}
+            maxLength={50}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={e => setDateOfBirth(e.target.value)}
+              className="input-animated"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">You must be 18+ to use Chatterly</p>
+          </div>
+        </>
       )}
       <input
         type="email"

@@ -9,6 +9,16 @@ export const userSchema = z.object({
   password: z.string().min(8).max(100),
   gender: z.enum(['male', 'female', 'other']).optional(),
   type: z.enum(['free', 'pro']).default('free'),
+  dateOfBirth: z.string().refine((val) => {
+    const dob = new Date(val);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age >= 18;
+  }, { message: "You must be at least 18 years old" }),
 })
 
 export type UserInput = z.infer<typeof userSchema>
@@ -19,6 +29,7 @@ export interface IUser extends Document {
   email: string
   password: string
   gender?: 'male' | 'female' | 'other'
+  dateOfBirth: Date
   type: 'free' | 'pro'
   status: 'active' | 'suspended' | 'banned'
   role: 'user' | 'moderator' | 'admin'
@@ -72,6 +83,10 @@ const userMongooseSchema = new Schema<IUser>(
       type: String,
       enum: ['male', 'female', 'other'],
       required: false,
+    },
+    dateOfBirth: {
+      type: Date,
+      required: true,
     },
     type: {
       type: String,
@@ -162,5 +177,9 @@ userMongooseSchema.methods.comparePassword = async function (
 
 // Create indexes
 userMongooseSchema.index({ email: 1 })
+userMongooseSchema.index({ status: 1 })
+userMongooseSchema.index({ role: 1 })
+userMongooseSchema.index({ createdAt: -1 })
+userMongooseSchema.index({ 'stats.reportCount': -1 })
 
 export const User = model<IUser>('User', userMongooseSchema)

@@ -1,11 +1,13 @@
 import { Server as HttpServer } from 'http'
 import { Server, Socket } from 'socket.io'
+import cookie from 'cookie'
 import { logger } from '../config/logger'
 import { appConfig } from '../config/env'
 import { redis } from '../config/redis'
 import jwt from 'jsonwebtoken'
 import { User } from '../models/user.model'
 import { matchingService } from './matching.service'
+import { moderationService } from './moderation.service'
 
 interface AuthenticatedSocket extends Socket {
   userId?: string
@@ -30,7 +32,13 @@ export class SocketService {
   private setupMiddleware() {
     this.io.use(async (socket: AuthenticatedSocket, next) => {
       try {
-        const token = socket.handshake.auth.token
+        let token = socket.handshake.auth.token
+        
+        if (!token && socket.handshake.headers.cookie) {
+          const cookies = cookie.parse(socket.handshake.headers.cookie)
+          token = cookies.token
+        }
+
         if (!token) {
           throw new Error('Authentication error')
         }
@@ -132,12 +140,15 @@ export class SocketService {
     const match = matchingService.getMatch(socket.matchId)
     if (!match) return
 
+    // Clean the message
+    const cleanedMessage = moderationService.cleanMessage(data.message)
+
     // Determine the other user
     const otherUserId = match.user1.userId === socket.userId ? match.user2.userId : match.user1.userId
     
     // Send message to the other user
     this.notifyUserByUserId(otherUserId, 'chat_message', {
-      message: data.message,
+      message: cleanedMessage,
       sender: 'stranger',
       timestamp: new Date().toISOString(),
     })

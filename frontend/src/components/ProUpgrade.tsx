@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getApiUrl, getAuthToken, User } from "../utils/auth";
+import { apiRequest, setAuthData, User } from "../utils/auth";
 
 interface ProUpgradeProps {
   user: User;
@@ -19,17 +19,8 @@ export default function ProUpgrade({ user, onUserUpdate }: ProUpgradeProps) {
     setSuccess("");
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${getApiUrl()}/profile/upgrade`, {
+      const response = await apiRequest('/profile/upgrade', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
       });
 
       const data = await response.json();
@@ -38,10 +29,8 @@ export default function ProUpgrade({ user, onUserUpdate }: ProUpgradeProps) {
         throw new Error(data.message || 'Failed to upgrade account');
       }
 
-      // Update user data in localStorage
-      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const updatedUser = { ...currentUser, type: 'pro' };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // Update user data
+      setAuthData(data.user);
       
       // Update parent component
       onUserUpdate({ type: 'pro' });

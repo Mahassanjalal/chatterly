@@ -3,6 +3,7 @@ import http from 'http'
 import helmet from 'helmet'
 import cors from 'cors'
 import compression from 'compression'
+import cookieParser from 'cookie-parser'
 import { appConfig } from './config/env'
 import { logger } from './config/logger'
 import { connectToMongoDB } from './config/mongodb'
@@ -22,12 +23,24 @@ const server = http.createServer(app)
 new SocketService(server)
 
 // Middleware
-app.use(helmet())
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", appConfig.cors.origin, "wss:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}))
 app.use(cors({
   origin: appConfig.cors.origin,
   credentials: true,
 }))
 app.use(compression())
+app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
@@ -35,9 +48,24 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/api/auth', authRoutes)
 app.use('/api/profile', profileRoutes)
 
-// Health check endpoint
+// Health check endpoints
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
+  res.json({ 
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    env: appConfig.env
+  })
+})
+
+app.get('/health/ready', async (req, res) => {
+  // Check DB connection
+  const isDbConnected = require('mongoose').connection.readyState === 1
+  
+  if (isDbConnected) {
+    res.json({ status: 'ready' })
+  } else {
+    res.status(503).json({ status: 'not ready', database: isDbConnected ? 'up' : 'down' })
+  }
 })
 
 // Error handling
