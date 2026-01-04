@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import io from "socket.io-client";
 import SimplePeer from "simple-peer";
 import EmojiPicker from "../../components/EmojiPicker";
 import PreferenceSelector from "../../components/PreferenceSelector";
-import { getAuthToken, isAuthenticated } from "../../utils/auth";
+import { isAuthenticated } from "../../utils/auth";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -56,11 +56,10 @@ export default function ChatPage() {
 
   // Initialize socket connection
   useEffect(() => {
-    const token = getAuthToken();
-    if (!token) return;
+    if (!isAuthenticated()) return;
 
     const socket = io(SOCKET_URL, {
-      auth: { token }
+      withCredentials: true // Important for cookies
     });
 
     socketRef.current = socket;
@@ -122,10 +121,10 @@ export default function ChatPage() {
       socket.disconnect();
       cleanupVideoCall();
     };
-  }, [router]);
+  }, [router, handleCallEnd, initializeVideoCall, cleanupVideoCall]);
 
   // Initialize video call
-  const initializeVideoCall = async (isInitiator: boolean) => {
+  const initializeVideoCall = useCallback(async (isInitiator: boolean) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: videoEnabled, 
@@ -167,9 +166,9 @@ export default function ChatPage() {
       console.error('Failed to initialize video call:', error);
       setVideoStatus('failed');
     }
-  };
+  }, [videoEnabled, audioEnabled]);
 
-  const cleanupVideoCall = () => {
+  const cleanupVideoCall = useCallback(() => {
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
@@ -187,7 +186,7 @@ export default function ChatPage() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-  };
+  }, []);
 
   // Event handlers
   const handleStartSearch = (preferences: { gender: 'male' | 'female' | 'both' }) => {
@@ -225,7 +224,7 @@ export default function ChatPage() {
     }
   };
 
-  const handleCallEnd = (reason?: string) => {
+  const handleCallEnd = useCallback((reason?: string) => {
     cleanupVideoCall();
     setChatState('disconnected');
     setMatchId(null);
@@ -235,7 +234,7 @@ export default function ChatPage() {
     if (reason === 'partner_left') {
       setError('Your partner has left the chat');
     }
-  };
+  }, [cleanupVideoCall]);
 
   const handleEndCall = () => {
     socketRef.current?.emit('end_call');
@@ -416,7 +415,7 @@ export default function ChatPage() {
       </header>
 
       {/* Video Area */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Remote Video */}
         <div className="flex-1 relative bg-black">
           <video
@@ -449,7 +448,7 @@ export default function ChatPage() {
           )}
 
           {/* Local Video (Picture in Picture) */}
-          <div className="absolute top-4 right-4 w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600">
+          <div className="absolute top-4 right-4 w-24 h-18 md:w-32 md:h-24 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg z-20">
             <video
               ref={localVideoRef}
               autoPlay
@@ -461,7 +460,7 @@ export default function ChatPage() {
         </div>
 
         {/* Chat Sidebar */}
-        <div className="w-80 bg-white flex flex-col">
+        <div className="w-full md:w-80 h-1/2 md:h-full bg-white flex flex-col border-t md:border-t-0 md:border-l border-gray-200">
           {/* Chat Messages */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3">
             {messages.length === 0 && (

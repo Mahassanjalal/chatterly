@@ -175,7 +175,7 @@ export default function SafetyCenter() {
           <div className="bg-gray-900 text-white rounded-2xl p-8">
             <h2 className="text-2xl font-bold mb-6">Emergency Resources</h2>
             <p className="mb-6 text-gray-300">
-              If you're in immediate danger or have experienced a serious crime, contact local authorities:
+              If you&apos;re in immediate danger or have experienced a serious crime, contact local authorities:
             </p>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">

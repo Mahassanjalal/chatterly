@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { signup, login, me } from '../controllers/auth.controller'
+import { signup, login, logout, me } from '../controllers/auth.controller'
 import { validate } from '../middleware/validate'
 import { userSchema } from '../models/user.model'
 import { auth } from '../middleware/auth'
@@ -25,6 +25,7 @@ router.use(apiLimiter)
 // Auth routes
 router.post('/register', validate(registerSchema), signup)
 router.post('/login', validate(loginSchema), login)
+router.post('/logout', logout)
 router.get('/me', auth, me)
 
 export default router

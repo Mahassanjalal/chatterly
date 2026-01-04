@@ -22,8 +22,34 @@ const generateToken = (userId: string): string => {
   return jwt.sign({ id: userId }, appConfig.jwt.secret, signOptions)
 }
 
+const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
+  const token = generateToken(user._id)
+
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days matching JWT_EXPIRES_IN
+    ),
+    httpOnly: true,
+    secure: appConfig.isProduction,
+    sameSite: 'lax' as const,
+  }
+
+  res
+    .status(statusCode)
+    .cookie('token', token, cookieOptions)
+    .json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        gender: user.gender,
+        type: user.type,
+      },
+    })
+}
+
 export const signup = asyncHandler(async (req: Request, res: Response) => {
-  const { name, email, password, gender, type } = await userSchema.parseAsync(req.body)
+  const { name, email, password, gender, type, dateOfBirth } = await userSchema.parseAsync(req.body)
 
   const existingUser = await User.findOne({ email })
   if (existingUser) {
@@ -35,22 +61,12 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     email, 
     password,
     gender,
+    dateOfBirth,
     type: type || 'free'
   })
   await user.save()
 
-  const token = generateToken(user._id)
-
-  res.status(201).json({
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      gender: user.gender,
-      type: user.type,
-    },
-  })
+  sendTokenResponse(user, 201, res)
 })
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
@@ -61,17 +77,18 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     throw new AppError(401, 'Invalid credentials')
   }
 
-  const token = generateToken(user._id)
+  sendTokenResponse(user, 200, res)
+})
 
-  res.json({
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      gender: user.gender,
-      type: user.type,
-    },
+export const logout = asyncHandler(async (req: Request, res: Response) => {
+  res.cookie('token', 'none', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'User logged out',
   })
 })
 

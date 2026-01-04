@@ -24,10 +24,10 @@ export const getApiUrl = (): string => {
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 };
 
-// Get stored auth token
+// Get stored auth token - No longer needed as we use httpOnly cookies
+// But we might still want to know if we are logged in
 export const getAuthToken = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('chatterly_token');
+  return null;
 };
 
 // Get stored user data
@@ -38,22 +38,20 @@ export const getUser = (): User | null => {
 };
 
 // Store auth data
-export const setAuthData = (token: string, user: User): void => {
+export const setAuthData = (user: User): void => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('chatterly_token', token);
   localStorage.setItem('chatterly_user', JSON.stringify(user));
 };
 
 // Clear auth data
 export const clearAuthData = (): void => {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('chatterly_token');
   localStorage.removeItem('chatterly_user');
 };
 
 // Check if user is authenticated
 export const isAuthenticated = (): boolean => {
-  return getAuthToken() !== null;
+  return getUser() !== null;
 };
 
 // API request with auth header
@@ -61,7 +59,6 @@ export const apiRequest = async (
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> => {
-  const token = getAuthToken();
   const url = `${getApiUrl()}${endpoint}`;
   
   const headers: HeadersInit = {
@@ -69,22 +66,16 @@ export const apiRequest = async (
     ...options.headers,
   };
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   return fetch(url, {
     ...options,
     headers,
+    credentials: 'include', // Important for cookies
   });
 };
 
 // Login function
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
   const requestBody = { email, password };
-  
-  // Debug logging (remove in production)
-  console.log('Login request:', requestBody);
   
   const response = await apiRequest('/auth/login', {
     method: 'POST',
@@ -93,24 +84,18 @@ export const login = async (email: string, password: string): Promise<AuthRespon
 
   const result = await response.json();
   
-  // Debug logging (remove in production)
-  console.log('Login response:', { status: response.status, result });
-
   if (!response.ok) {
     const error: ApiError = result;
     throw new Error(error.error || error.message || 'Login failed');
   }
 
-  setAuthData(result.token, result.user);
+  setAuthData(result.user);
   return result;
 };
 
 // Register function
-export const register = async (name: string, email: string, password: string, gender?: 'male' | 'female' | 'other', type?: 'free' | 'pro'): Promise<AuthResponse> => {
-  const requestBody = { name, email, password, gender, type };
-  
-  // Debug logging (remove in production)
-  console.log('Registration request:', requestBody);
+export const register = async (name: string, email: string, password: string, dateOfBirth: string, gender?: 'male' | 'female' | 'other', type?: 'free' | 'pro'): Promise<AuthResponse> => {
+  const requestBody = { name, email, password, dateOfBirth, gender, type };
   
   const response = await apiRequest('/auth/register', {
     method: 'POST',
@@ -119,15 +104,11 @@ export const register = async (name: string, email: string, password: string, ge
 
   const result = await response.json();
   
-  // Debug logging (remove in production)
-  console.log('Registration response:', { status: response.status, result });
-
   if (!response.ok) {
     const error: ApiError = result;
     
     // Handle Zod validation errors
     if (error.error === 'Validation error' && error.details) {
-      console.log('Validation errors:', error.details);
       const errorMessages = error.details.map(detail => `${detail.path.join('.')}: ${detail.message}`).join(', ');
       throw new Error(errorMessages);
     }
@@ -135,7 +116,7 @@ export const register = async (name: string, email: string, password: string, ge
     throw new Error(error.error || error.message || 'Registration failed');
   }
 
-  setAuthData(result.token, result.user);
+  setAuthData(result.user);
   return result;
 };
 
@@ -147,10 +128,17 @@ export const getCurrentUser = async (): Promise<User> => {
     throw new Error('Failed to get user profile');
   }
   
-  return response.json();
+  const data = await response.json();
+  return data.user;
 };
 
 // Logout function
-export const logout = (): void => {
-  clearAuthData();
+export const logout = async (): Promise<void> => {
+  try {
+    await apiRequest('/auth/logout', { method: 'POST' });
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    clearAuthData();
+  }
 };

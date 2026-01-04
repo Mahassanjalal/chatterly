@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getApiUrl, getAuthToken, User } from "../utils/auth";
+import { apiRequest, setAuthData, User } from "../utils/auth";
 
 interface ProfileEditFormProps {
   user: User;
@@ -34,17 +34,8 @@ export default function ProfileEditForm({ user, onUserUpdate }: ProfileEditFormP
     setSuccess("");
 
     try {
-      const token = getAuthToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`${getApiUrl()}/profile`, {
+      const response = await apiRequest('/profile', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify(formData),
       });
 
@@ -54,8 +45,8 @@ export default function ProfileEditForm({ user, onUserUpdate }: ProfileEditFormP
         throw new Error(data.message || 'Failed to update profile');
       }
 
-      // Update user data in localStorage
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // Update user data
+      setAuthData(data.user);
       
       // Update parent component
       onUserUpdate(data.user);

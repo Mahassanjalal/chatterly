@@ -15,15 +15,16 @@ export default function RegisterPage() {
     password: string; 
     name?: string; 
     gender?: 'male' | 'female' | 'other'; 
-    userType?: 'free' | 'pro' 
+    userType?: 'free' | 'pro';
+    dateOfBirth?: string;
   }) => {
     setLoading(true);
     setError("");
     try {
-      if (!data.name) {
-        throw new Error("Name is required");
+      if (!data.name || !data.dateOfBirth) {
+        throw new Error("Name and Date of Birth are required");
       }
-      await register(data.name, data.email, data.password, data.gender, data.userType);
+      await register(data.name, data.email, data.password, data.dateOfBirth, data.gender, data.userType);
       router.push("/chat");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
