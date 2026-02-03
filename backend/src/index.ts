@@ -15,6 +15,9 @@ import { SocketService } from './services/socket.service'
 // Import routes
 import authRoutes from './routes/auth.routes'
 import profileRoutes from './routes/profile.routes'
+import analyticsRoutes from './routes/analytics.routes'
+import subscriptionRoutes from './routes/subscription.routes'
+import webrtcRoutes from './routes/webrtc.routes'
 
 // Create Express app
 const app = express()
@@ -48,6 +51,9 @@ app.use(express.urlencoded({ extended: true }))
 // Routes
 app.use('/api/auth', authRoutes)
 app.use('/api/profile', profileRoutes)
+app.use('/api/analytics', analyticsRoutes)
+app.use('/api/subscription', subscriptionRoutes)
+app.use('/api/webrtc', webrtcRoutes)
 
 // Health check endpoints
 app.get('/health', (req, res) => {

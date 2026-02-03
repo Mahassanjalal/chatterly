@@ -6,11 +6,22 @@ import io from "socket.io-client";
 import SimplePeer from "simple-peer";
 import EmojiPicker from "../../components/EmojiPicker";
 import PreferenceSelector from "../../components/PreferenceSelector";
+import ConnectionQualityIndicator from "../../components/ConnectionQualityIndicator";
 import { isAuthenticated } from "../../utils/auth";
+import { AdaptiveQualityController, ConnectionQuality, QualityLevel } from "../../utils/adaptive-quality";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 type ChatState = 'preferences' | 'searching' | 'connected' | 'disconnected';
+
+interface WebRTCConfig {
+  iceServers: Array<{
+    urls: string | string[];
+    username?: string;
+    credential?: string;
+  }>;
+  iceCandidatePoolSize: number;
+}
 
 export default function ChatPage() {
   const router = useRouter();
@@ -23,17 +34,21 @@ export default function ChatPage() {
   // Match state
   const [matchId, setMatchId] = useState<string | null>(null);
   const [partnerName, setPartnerName] = useState<string>('Stranger');
+  const [matchScore, setMatchScore] = useState<number | null>(null);
   
   // Chat state
   const [messages, setMessages] = useState<{ sender: 'You' | 'Stranger'; text: string; timestamp: string }[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [partnerTyping, setPartnerTyping] = useState(false);
+  const [messageWarning, setMessageWarning] = useState<string | null>(null);
   
   // Video state
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoStatus, setVideoStatus] = useState<'connecting' | 'connected' | 'failed'>('connecting');
+  const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality>('good');
+  const [currentQuality, setCurrentQuality] = useState<QualityLevel | null>(null);
   
   // UI state
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -45,6 +60,8 @@ export default function ChatPage() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const qualityControllerRef = useRef<AdaptiveQualityController | null>(null);
+  const webrtcConfigRef = useRef<WebRTCConfig | null>(null);
 
   // Check authentication
   useEffect(() => {
@@ -76,12 +93,18 @@ export default function ChatPage() {
     socket.on('match_found', async (data) => {
       setMatchId(data.matchId);
       setPartnerName(data.partner?.name || 'Stranger');
+      setMatchScore(data.matchScore || null);
       setChatState('connected');
       setMessages([]);
       setError(null);
       
+      // Store WebRTC config if provided
+      if (data.webrtcConfig) {
+        webrtcConfigRef.current = data.webrtcConfig;
+      }
+      
       // Initialize video call
-      await initializeVideoCall(data.isInitiator);
+      await initializeVideoCall(data.isInitiator, data.webrtcConfig);
     });
 
     socket.on('chat_message', (data) => {
@@ -117,17 +140,40 @@ export default function ChatPage() {
       setChatState('disconnected');
     });
 
+    // New moderation events
+    socket.on('message_blocked', (data) => {
+      setMessageWarning(`Message blocked: ${data.reason}`);
+      setTimeout(() => setMessageWarning(null), 5000);
+    });
+
+    socket.on('message_warning', (data) => {
+      setMessageWarning(`Warning (${data.warningCount}): ${data.reason}`);
+      setTimeout(() => setMessageWarning(null), 5000);
+    });
+
+    // Connection quality update
+    socket.on('connection_quality_update', (data) => {
+      setConnectionQuality(data.quality);
+    });
+
     return () => {
       socket.disconnect();
       cleanupVideoCall();
     };
-  }, [router, handleCallEnd, initializeVideoCall, cleanupVideoCall]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   // Initialize video call
-  const initializeVideoCall = useCallback(async (isInitiator: boolean) => {
+  const initializeVideoCall = useCallback(async (isInitiator: boolean, webrtcConfig?: WebRTCConfig) => {
     try {
+      // Initialize adaptive quality controller
+      qualityControllerRef.current = new AdaptiveQualityController('720p'); // Default to 720p max
+      qualityControllerRef.current.setOnQualityChange((quality) => {
+        setCurrentQuality(quality);
+      });
+
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: videoEnabled, 
+        video: videoEnabled ? qualityControllerRef.current.getVideoConstraints() : false, 
         audio: audioEnabled 
       });
       
@@ -136,11 +182,22 @@ export default function ChatPage() {
         localVideoRef.current.srcObject = stream;
       }
 
-      const peer = new SimplePeer({
+      // Build SimplePeer config with custom ICE servers
+      const peerConfig: SimplePeer.Options = {
         initiator: isInitiator,
-        trickle: false,
+        trickle: true, // Enable trickle ICE for faster connection
         stream: stream,
-      });
+      };
+
+      // Add ICE servers from server config
+      if (webrtcConfig?.iceServers) {
+        peerConfig.config = {
+          iceServers: webrtcConfig.iceServers,
+          iceCandidatePoolSize: webrtcConfig.iceCandidatePoolSize || 10,
+        };
+      }
+
+      const peer = new SimplePeer(peerConfig);
 
       peer.on('signal', (data: SimplePeer.SignalData) => {
         socketRef.current?.emit('webrtc_signal', data);
@@ -153,7 +210,17 @@ export default function ChatPage() {
         }
       });
 
-      peer.on('error', () => {
+      peer.on('connect', () => {
+        // Set up quality monitoring when connected
+        // Access the internal RTCPeerConnection (SimplePeer exposes this)
+        const peerConnection = (peer as unknown as { _pc: RTCPeerConnection })._pc;
+        if (qualityControllerRef.current && peerConnection) {
+          qualityControllerRef.current.setPeerConnection(peerConnection);
+        }
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
         setVideoStatus('failed');
       });
 
@@ -186,6 +253,15 @@ export default function ChatPage() {
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+
+    // Reset quality controller
+    if (qualityControllerRef.current) {
+      qualityControllerRef.current.reset();
+      qualityControllerRef.current = null;
+    }
+    
+    setConnectionQuality('good');
+    setCurrentQuality(null);
   }, []);
 
   // Event handlers
@@ -365,8 +441,26 @@ export default function ChatPage() {
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             <span className="text-sm">Connected to {partnerName}</span>
+            {matchScore !== null && (
+              <span className="text-xs text-gray-400">
+                Match: {Math.round(matchScore * 100)}%
+              </span>
+            )}
           </div>
+          {/* Connection Quality Indicator */}
+          <ConnectionQualityIndicator 
+            quality={connectionQuality} 
+            currentQuality={currentQuality || undefined}
+            showDetails={true}
+          />
         </div>
+        
+        {/* Message Warning Toast */}
+        {messageWarning && (
+          <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg">
+            {messageWarning}
+          </div>
+        )}
         
         <div className="flex items-center gap-2">
           <button
