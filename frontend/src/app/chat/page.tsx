@@ -212,7 +212,9 @@ export default function ChatPage() {
 
       peer.on('connect', () => {
         // Set up quality monitoring when connected
-        // Access the internal RTCPeerConnection (SimplePeer exposes this)
+        // Note: SimplePeer exposes the internal RTCPeerConnection via _pc property
+        // This is not part of the public API and may change in future versions
+        // Consider monitoring SimplePeer releases for any breaking changes
         const peerConnection = (peer as unknown as { _pc: RTCPeerConnection })._pc;
         if (qualityControllerRef.current && peerConnection) {
           qualityControllerRef.current.setPeerConnection(peerConnection);

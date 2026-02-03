@@ -1,10 +1,23 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { getWebRTCConfig, getOptimalQualityLevel, QUALITY_LEVELS } from '../config/webrtc';
 import { subscriptionService } from '../services/subscription.service';
 import { authMiddleware } from '../middleware/auth';
 import { logger } from '../config/logger';
 
 const router = express.Router();
+
+// Rate limiter for WebRTC routes
+const webrtcRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 30, // 30 requests per minute
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiter to all routes
+router.use(webrtcRateLimiter);
 
 /**
  * GET /api/webrtc/config

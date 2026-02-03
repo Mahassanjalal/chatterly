@@ -1,9 +1,22 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { subscriptionService, PlanType } from '../services/subscription.service';
 import { authMiddleware } from '../middleware/auth';
 import { logger } from '../config/logger';
 
 const router = express.Router();
+
+// Rate limiter for subscription routes
+const subscriptionRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 20, // 20 requests per minute
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiter to all routes
+router.use(subscriptionRateLimiter);
 
 /**
  * GET /api/subscription/plans

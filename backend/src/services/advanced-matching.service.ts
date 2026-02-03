@@ -148,19 +148,24 @@ export class AdvancedMatchingService {
 
   /**
    * Normalize preferences based on user type
+   * Free users: Can select 'both' or same-gender only (opposite-gender filter is premium)
+   * Pro users: Full preference selection including opposite-gender filter
    */
   private normalizePreferences(user: IUser, preferences: Partial<MatchingPreferences>): MatchingPreferences {
     const defaultPreferences: MatchingPreferences = {
       gender: 'both',
     };
 
-    // Free users have limited preferences
+    // Free users have limited preferences:
+    // They can choose 'both' or same-gender matching
+    // Selecting opposite-gender specifically is a premium feature
     if (user.type === 'free') {
-      const genderPref = preferences.gender === user.gender || preferences.gender === 'both' 
-        ? preferences.gender 
-        : 'both';
+      const canUsePreference = 
+        preferences.gender === 'both' || 
+        preferences.gender === user.gender;
+      
       return {
-        gender: genderPref || 'both',
+        gender: canUsePreference ? (preferences.gender || 'both') : 'both',
       };
     }
 

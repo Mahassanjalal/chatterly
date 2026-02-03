@@ -252,7 +252,9 @@ export class SubscriptionService {
   }
 
   /**
-   * Upgrade user's plan (simplified - would integrate with payment provider)
+   * Upgrade user's plan (simplified - would integrate with payment provider in production)
+   * Note: The User model currently only supports 'free' and 'pro' types.
+   * Plus tier is mapped to 'pro' but can be distinguished by the plan field if needed.
    */
   async upgradePlan(userId: string, newPlan: PlanType): Promise<{ success: boolean; message: string }> {
     try {
@@ -262,9 +264,11 @@ export class SubscriptionService {
       }
 
       // Map PlanType to user type
+      // Note: User model supports 'free' | 'pro', so Plus is treated as 'pro' level
+      // In production, consider extending the User model to support all plan types
       const typeMapping: Record<PlanType, 'free' | 'pro'> = {
         [PlanType.FREE]: 'free',
-        [PlanType.PLUS]: 'pro', // Map Plus to 'pro' for now
+        [PlanType.PLUS]: 'pro',
         [PlanType.PRO]: 'pro',
       };
 
