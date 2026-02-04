@@ -22,6 +22,7 @@ import webrtcRoutes from './routes/webrtc.routes'
 import adminRoutes from './routes/admin.routes'
 import gdprRoutes from './routes/gdpr.routes'
 import blockingRoutes from './routes/blocking.routes'
+import notificationRoutes from './routes/notification.routes'
 
 // Create Express app
 const app = express()
@@ -70,6 +71,7 @@ app.use('/api/webrtc', webrtcRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/gdpr', gdprRoutes)
 app.use('/api/blocking', blockingRoutes)
+app.use('/api/notifications', notificationRoutes)
 
 // Health check endpoints
 app.get('/health', (req, res) => {

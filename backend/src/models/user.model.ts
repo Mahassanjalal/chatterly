@@ -194,11 +194,30 @@ userMongooseSchema.methods.comparePassword = async function (
   return bcrypt.compare(candidatePassword, this.password)
 }
 
-// Create indexes
-userMongooseSchema.index({ email: 1 })
+// Create indexes for high-performance queries at scale
+// Primary lookup indexes
+userMongooseSchema.index({ email: 1 }, { unique: true })
 userMongooseSchema.index({ status: 1 })
 userMongooseSchema.index({ role: 1 })
 userMongooseSchema.index({ createdAt: -1 })
+
+// Matching and queue optimization indexes
+userMongooseSchema.index({ type: 1, gender: 1 }) // For matching queries
+userMongooseSchema.index({ type: 1, status: 1 }) // For active user queries
+userMongooseSchema.index({ 'flags.isEmailVerified': 1 }) // For verified users filter
+
+// Moderation and safety indexes
 userMongooseSchema.index({ 'stats.reportCount': -1 })
+userMongooseSchema.index({ 'stats.warningCount': -1 })
+userMongooseSchema.index({ 'restrictions.isSuspended': 1 })
+userMongooseSchema.index({ 'restrictions.isPermBanned': 1 })
+
+// Token lookup indexes (for auth flows)
+userMongooseSchema.index({ emailVerificationToken: 1 }, { sparse: true })
+userMongooseSchema.index({ passwordResetToken: 1 }, { sparse: true })
+
+// Compound indexes for common queries
+userMongooseSchema.index({ status: 1, type: 1, createdAt: -1 })
+userMongooseSchema.index({ status: 1, 'flags.isEmailVerified': 1 })
 
 export const User = model<IUser>('User', userMongooseSchema)
