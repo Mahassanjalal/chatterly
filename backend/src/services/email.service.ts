@@ -44,12 +44,54 @@ export interface EmailOptions {
 
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
   try {
+    // Properly strip HTML tags by first removing script/style tags, then all other tags
+    const stripHtml = (html: string): string => {
+      // Remove script and style tags with their content using a non-regex approach
+      let text = html;
+      
+      // Remove script tags
+      while (text.includes('<script')) {
+        const start = text.indexOf('<script');
+        const end = text.indexOf('</script>');
+        if (start !== -1 && end !== -1) {
+          text = text.substring(0, start) + text.substring(end + 9);
+        } else {
+          break;
+        }
+      }
+      
+      // Remove style tags
+      while (text.includes('<style')) {
+        const start = text.indexOf('<style');
+        const end = text.indexOf('</style>');
+        if (start !== -1 && end !== -1) {
+          text = text.substring(0, start) + text.substring(end + 8);
+        } else {
+          break;
+        }
+      }
+      
+      // Remove all remaining HTML tags using indexOf to avoid regex vulnerabilities
+      while (text.includes('<') && text.includes('>')) {
+        const start = text.indexOf('<');
+        const end = text.indexOf('>', start);
+        if (start !== -1 && end !== -1) {
+          text = text.substring(0, start) + ' ' + text.substring(end + 1);
+        } else {
+          break;
+        }
+      }
+      
+      // Clean up extra whitespace
+      return text.split(/\s+/).filter(Boolean).join(' ').trim();
+    };
+
     const mailOptions = {
       from: process.env.EMAIL_FROM || '"Chatterly" <noreply@chatterly.com>',
       to: options.to,
       subject: options.subject,
       html: options.html,
-      text: options.text || options.html.replace(/<[^>]*>/g, ''),
+      text: options.text || stripHtml(options.html),
     }
 
     const info = await transporter.sendMail(mailOptions)

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { auth } from '../middleware/auth'
+import { apiLimiter } from '../middleware/rateLimiter'
 import { blockUser, unblockUser, getBlockedUsers, isUserBlocked } from '../controllers/blocking.controller'
 import { validate } from '../middleware/validate'
 import { z } from 'zod'
@@ -18,8 +19,9 @@ const unblockUserSchema = z.object({
   }),
 })
 
-// All routes require authentication
+// All routes require authentication and rate limiting
 router.use(auth)
+router.use(apiLimiter)
 
 // Get blocked users list
 router.get('/', getBlockedUsers)

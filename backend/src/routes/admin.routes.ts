@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { auth } from '../middleware/auth'
 import { adminOnly, moderatorOrAdmin } from '../middleware/roles'
+import { apiLimiter } from '../middleware/rateLimiter'
 import {
   getDashboardStats,
   getUsers,
@@ -17,8 +18,9 @@ import {
 
 const router = Router()
 
-// Apply auth and admin middleware to all routes
+// Apply auth, rate limiting, and admin middleware to all routes
 router.use(auth)
+router.use(apiLimiter)
 
 // Dashboard (admin only)
 router.get('/dashboard', adminOnly, getDashboardStats)
