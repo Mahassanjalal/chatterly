@@ -61,7 +61,6 @@ export async function connectToMongoDB(): Promise<void> {
 
     // Monitor connection pool
     setInterval(() => {
-      const poolStats = mongoose.connection.db?.serverStatus?.();
       if (appConfig.isDevelopment && mongoose.connection.readyState === 1) {
         logger.debug('MongoDB connection healthy')
       }

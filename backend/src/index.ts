@@ -1,6 +1,5 @@
 import express from 'express'
 import http from 'http'
-import mongoose from 'mongoose'
 import helmet from 'helmet'
 import cors from 'cors'
 import compression from 'compression'
@@ -23,6 +22,7 @@ import adminRoutes from './routes/admin.routes'
 import gdprRoutes from './routes/gdpr.routes'
 import blockingRoutes from './routes/blocking.routes'
 import notificationRoutes from './routes/notification.routes'
+import healthRoutes from './routes/health.routes'
 
 // Create Express app
 const app = express()
@@ -73,25 +73,8 @@ app.use('/api/gdpr', gdprRoutes)
 app.use('/api/blocking', blockingRoutes)
 app.use('/api/notifications', notificationRoutes)
 
-// Health check endpoints
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    env: appConfig.env
-  })
-})
-
-app.get('/health/ready', async (req, res) => {
-  // Check DB connection
-  const isDbConnected = mongoose.connection.readyState === 1
-  
-  if (isDbConnected) {
-    res.json({ status: 'ready' })
-  } else {
-    res.status(503).json({ status: 'not ready', database: isDbConnected ? 'up' : 'down' })
-  }
-})
+// Health check routes (comprehensive health monitoring)
+app.use('/health', healthRoutes)
 
 // Sentry error handler (before other error handlers)
 if (process.env.SENTRY_DSN) {
