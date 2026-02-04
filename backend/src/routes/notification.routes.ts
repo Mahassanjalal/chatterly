@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
+import { apiLimiter } from '../middleware/rate-limiter';
 import { notificationService, NotificationType } from '../services/notification.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { AppError } from '../middleware/error';
 
 const router = Router();
+
+// Apply rate limiting to all notification routes
+router.use(apiLimiter);
 
 /**
  * @route GET /api/notifications

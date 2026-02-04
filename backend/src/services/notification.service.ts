@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { redis } from '../config/redis';
 import { logger } from '../config/logger';
 
@@ -500,10 +501,10 @@ export class NotificationService {
   }
 
   /**
-   * Generate unique notification ID
+   * Generate unique notification ID using UUID for collision resistance
    */
   private generateNotificationId(): string {
-    return `notif_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    return `notif_${uuidv4()}`;
   }
 }
 

@@ -253,15 +253,31 @@ export class CacheService {
   }
 
   /**
-   * Clear cache by pattern
+   * Clear cache by pattern using SCAN (non-blocking)
+   * Uses SCAN instead of KEYS to avoid blocking Redis in production
    */
   async clearByPattern(pattern: string): Promise<number> {
     try {
-      const keys = await redis.keys(pattern);
-      if (keys.length > 0) {
-        await redis.del(keys);
-      }
-      return keys.length;
+      let cursor = 0;
+      let deletedCount = 0;
+      
+      // Use SCAN to iterate through keys without blocking
+      do {
+        const result = await redis.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100 // Process 100 keys at a time
+        });
+        
+        cursor = result.cursor;
+        const keys = result.keys;
+        
+        if (keys.length > 0) {
+          await redis.del(keys);
+          deletedCount += keys.length;
+        }
+      } while (cursor !== 0);
+      
+      return deletedCount;
     } catch (error) {
       logger.error('Cache clearByPattern error:', { pattern, error });
       return 0;

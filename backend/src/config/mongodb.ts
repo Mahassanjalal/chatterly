@@ -60,15 +60,22 @@ export async function connectToMongoDB(): Promise<void> {
     })
 
     // Monitor connection pool
-    setInterval(() => {
-      if (appConfig.isDevelopment && mongoose.connection.readyState === 1) {
-        logger.debug('MongoDB connection healthy')
-      }
-    }, 60000) // Check every minute
+    let healthCheckInterval: NodeJS.Timeout | null = null;
+    if (appConfig.isDevelopment) {
+      healthCheckInterval = setInterval(() => {
+        if (mongoose.connection.readyState === 1) {
+          logger.debug('MongoDB connection healthy')
+        }
+      }, 60000) // Check every minute
+    }
 
     // Graceful shutdown
     process.on('SIGINT', async () => {
       try {
+        // Clear health check interval
+        if (healthCheckInterval) {
+          clearInterval(healthCheckInterval)
+        }
         await mongoose.connection.close()
         logger.info('MongoDB connection closed through app termination')
         process.exit(0)

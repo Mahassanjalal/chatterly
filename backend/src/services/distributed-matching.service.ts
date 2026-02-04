@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { redis } from '../config/redis';
 import { User, IUser } from '../models/user.model';
 import { logger } from '../config/logger';
@@ -103,9 +104,12 @@ export class DistributedMatchingService {
       }
 
       // Determine final preferences based on user type
+      // Business rule: Free users cannot filter to opposite gender only (premium feature)
+      // - Free users can choose 'both' (any gender) or 'same' gender as themselves
+      // - Attempting to filter to opposite gender defaults to 'both'
       let finalPreference: 'male' | 'female' | 'both' = preferences.preferredGender || 'both';
       if (user.type === 'free' && finalPreference !== 'both' && finalPreference !== user.gender) {
-        // Free users can only filter to same gender or both
+        // Opposite-gender-only filtering is a premium feature
         finalPreference = 'both';
       }
 
@@ -228,7 +232,8 @@ export class DistributedMatchingService {
     user2: QueuedUser,
     score: number
   ): Promise<DistributedMatchResult | null> {
-    const matchId = `match_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    // Use UUID for collision-resistant match ID generation
+    const matchId = `match_${Date.now()}_${uuidv4().slice(0, 8)}`;
     
     try {
       // Use Redis transaction to atomically create match and remove users from queue

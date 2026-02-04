@@ -321,7 +321,7 @@ export class HealthService {
    */
   private getRequestRate(): number {
     const uptimeMinutes = (Date.now() - startTime) / 60000;
-    if (uptimeMinutes === 0) return 0;
+    if (uptimeMinutes <= 0.001) return 0; // Handle very small/zero uptime
     return this.totalRequests / uptimeMinutes;
   }
 

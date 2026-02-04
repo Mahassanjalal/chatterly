@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import type { Socket } from "socket.io-client";
+
+// Constants
+const MAX_NOTIFICATIONS_DISPLAY = 50;
 
 // Notification types matching backend
 export type NotificationType =
@@ -343,7 +347,7 @@ export function NotificationToast({ notification, onClose, onClick }: Notificati
 }
 
 // Hook for managing notifications
-export function useNotifications(socket: ReturnType<typeof import("socket.io-client").io> | null) {
+export function useNotifications(socket: Socket | null) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showCenter, setShowCenter] = useState(false);
@@ -368,7 +372,7 @@ export function useNotifications(socket: ReturnType<typeof import("socket.io-cli
 
     // Handle new notification
     socket.on('notification', (notification: Notification) => {
-      setNotifications(prev => [notification, ...prev].slice(0, 50));
+      setNotifications(prev => [notification, ...prev].slice(0, MAX_NOTIFICATIONS_DISPLAY));
       setUnreadCount(prev => prev + 1);
       
       // Show toast for high/urgent priority
