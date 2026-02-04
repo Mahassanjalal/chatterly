@@ -163,6 +163,14 @@ export class MatchingService {
       return false;
     }
 
+    // Check if either user has blocked the other
+    const user1BlockedUser2 = user1.user.blockedUsers?.includes(user2.userId) || false;
+    const user2BlockedUser1 = user2.user.blockedUsers?.includes(user1.userId) || false;
+    
+    if (user1BlockedUser2 || user2BlockedUser1) {
+      return false;
+    }
+
     // Check if users meet each other's gender preferences
     const user1Compatible = this.doesUserMeetGenderPreference(user2.user, user1.preferences.gender);
     const user2Compatible = this.doesUserMeetGenderPreference(user1.user, user2.preferences.gender);

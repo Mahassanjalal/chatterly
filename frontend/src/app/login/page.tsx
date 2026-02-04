@@ -3,6 +3,7 @@
 import AuthForm from "../../components/AuthForm";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { login } from "../../utils/auth";
 
 export default function LoginPage() {
@@ -24,8 +25,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center justify-center min-h-screen">
       <AuthForm type="login" onSubmit={handleLogin} loading={loading} error={error} />
+      <div className="mt-4">
+        <Link href="/forgot-password" className="text-white/80 hover:text-white transition-colors">
+          Forgot your password?
+        </Link>
+      </div>
     </div>
   );
 }

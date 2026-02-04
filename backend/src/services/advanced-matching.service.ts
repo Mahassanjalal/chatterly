@@ -428,6 +428,12 @@ export class AdvancedMatchingService {
     // Don't match with self
     if (user1.userId === user2.userId) return false;
 
+    // Check if either user has blocked the other
+    const user1BlockedUser2 = user1.user.blockedUsers?.includes(user2.userId) || false;
+    const user2BlockedUser1 = user2.user.blockedUsers?.includes(user1.userId) || false;
+    
+    if (user1BlockedUser2 || user2BlockedUser1) return false;
+
     // Check mutual gender preferences
     const pref1Match = user1.preferences.gender === 'both' || 
                        user1.preferences.gender === user2.user.gender;

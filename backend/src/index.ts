@@ -11,6 +11,7 @@ import { connectToMongoDB } from './config/mongodb'
 import { connectToRedis } from './config/redis'
 import { errorHandler } from './middleware/error'
 import { SocketService } from './services/socket.service'
+import { initSentry, sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from './services/sentry.service'
 
 // Import routes
 import authRoutes from './routes/auth.routes'
@@ -18,10 +19,22 @@ import profileRoutes from './routes/profile.routes'
 import analyticsRoutes from './routes/analytics.routes'
 import subscriptionRoutes from './routes/subscription.routes'
 import webrtcRoutes from './routes/webrtc.routes'
+import adminRoutes from './routes/admin.routes'
+import gdprRoutes from './routes/gdpr.routes'
+import blockingRoutes from './routes/blocking.routes'
 
 // Create Express app
 const app = express()
 const server = http.createServer(app)
+
+// Initialize Sentry (before other middleware)
+initSentry(app)
+
+// Sentry request handler (must be first)
+if (process.env.SENTRY_DSN) {
+  app.use(sentryRequestHandler)
+  app.use(sentryTracingHandler)
+}
 
 // Initialize socket service
 new SocketService(server)
@@ -54,6 +67,9 @@ app.use('/api/profile', profileRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/subscription', subscriptionRoutes)
 app.use('/api/webrtc', webrtcRoutes)
+app.use('/api/admin', adminRoutes)
+app.use('/api/gdpr', gdprRoutes)
+app.use('/api/blocking', blockingRoutes)
 
 // Health check endpoints
 app.get('/health', (req, res) => {
@@ -74,6 +90,11 @@ app.get('/health/ready', async (req, res) => {
     res.status(503).json({ status: 'not ready', database: isDbConnected ? 'up' : 'down' })
   }
 })
+
+// Sentry error handler (before other error handlers)
+if (process.env.SENTRY_DSN) {
+  app.use(sentryErrorHandler)
+}
 
 // Error handling
 app.use(errorHandler)
