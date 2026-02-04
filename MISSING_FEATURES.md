@@ -13,8 +13,8 @@ This document identifies features that are **not yet implemented** and additiona
 |---------|--------|----------|-------------|
 | Email Verification | ✅ Implemented | Critical | Verify user email addresses before allowing chat access |
 | Password Reset | ✅ Implemented | Critical | Allow users to reset forgotten passwords |
-| Refresh Token Rotation | ❌ Not Implemented | High | Implement secure token refresh to prevent session hijacking |
-| Account Lockout | ❌ Not Implemented | High | Lock accounts after multiple failed login attempts |
+| Refresh Token Rotation | ✅ Implemented | High | Secure token refresh with rotation to prevent session hijacking |
+| Account Lockout | ✅ Implemented | High | Lock accounts after 5 failed login attempts (15 min lockout) |
 | Two-Factor Authentication | ❌ Not Implemented | High | Add 2FA for enhanced account security |
 
 ### GDPR/Privacy Compliance
@@ -22,7 +22,7 @@ This document identifies features that are **not yet implemented** and additiona
 |---------|--------|----------|-------------|
 | Data Export | ✅ Implemented | Critical | Allow users to export their personal data (GDPR Art. 20) |
 | Account Deletion | ✅ Implemented | Critical | Allow users to delete their account and data (Right to be Forgotten) |
-| Cookie Preferences Page | ❌ Not Implemented | High | Detailed cookie management beyond accept/decline |
+| Cookie Preferences Page | ✅ Implemented | High | Detailed cookie management with granular controls (/cookie-preferences) |
 
 ### Content Moderation
 | Feature | Status | Priority | Description |
@@ -30,16 +30,16 @@ This document identifies features that are **not yet implemented** and additiona
 | Admin Dashboard | ✅ Implemented | Critical | Interface for moderators to review reports and manage users |
 | Moderation Queue UI | ✅ Implemented | Critical | Queue interface for handling reported content |
 | User Ban/Suspend UI | ✅ Implemented | High | Admin interface to ban/suspend users |
-| Video Content Moderation | ❌ Not Implemented | High | AI-based detection of inappropriate video content |
+| Video Content Moderation | ✅ Implemented | High | AI-based detection service for inappropriate video content |
 
 ### User Features
 | Feature | Status | Priority | Description |
 |---------|--------|----------|-------------|
 | User Blocking | ✅ Implemented | High | Allow users to block specific users from matching |
 | Blocked Users Management | ✅ Implemented | High | UI to view and manage blocked users |
-| Avatar/Profile Picture | ❌ Not Implemented | Medium | Allow users to upload profile pictures |
-| Interest Tags | ❌ Not Implemented | Medium | Tag-based interests for better matching |
-| Language Preferences | ❌ Not Implemented | Medium | Match users by preferred language |
+| Avatar/Profile Picture | ✅ Implemented | Medium | Allow users to upload profile pictures (5MB max) |
+| Interest Tags | ✅ Implemented | Medium | Tag-based interests for better matching (10 max) |
+| Language Preferences | ✅ Implemented | Medium | Match users by preferred language (5 max) |
 
 ### Monitoring & DevOps
 | Feature | Status | Priority | Description |
@@ -56,14 +56,7 @@ This document identifies features that are **not yet implemented** and additiona
 ### Authentication & Security
 | Feature | Status | Priority | Description |
 |---------|--------|----------|-------------|
-| Refresh Token Rotation | ❌ Not Implemented | High | Implement secure token refresh to prevent session hijacking |
-| Account Lockout | ❌ Not Implemented | High | Lock accounts after multiple failed login attempts |
 | Two-Factor Authentication | ❌ Not Implemented | High | Add 2FA for enhanced account security |
-
-### Content Moderation
-| Feature | Status | Priority | Description |
-|---------|--------|----------|-------------|
-| Video Content Moderation | ❌ Not Implemented | High | AI-based detection of inappropriate video content |
 
 ---
 

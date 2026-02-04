@@ -33,6 +33,12 @@ export interface IUser extends Document {
   type: 'free' | 'pro'
   status: 'active' | 'suspended' | 'banned'
   role: 'user' | 'moderator' | 'admin'
+  // Avatar/Profile picture
+  avatar?: string
+  // Interest tags for better matching
+  interests: string[]
+  // Language preferences for matching
+  languages: string[]
   flags: {
     isEmailVerified: boolean
     requiresCaptcha: boolean
@@ -51,6 +57,13 @@ export interface IUser extends Document {
     suspensionExpiresAt?: Date
     isPermBanned: boolean
     banReason?: string
+  }
+  // Account lockout fields
+  security: {
+    failedLoginAttempts: number
+    lastFailedLogin?: Date
+    lockoutUntil?: Date
+    refreshTokens: string[]
   }
   // Email verification fields
   emailVerificationToken?: string
@@ -111,6 +124,23 @@ const userMongooseSchema = new Schema<IUser>(
       enum: ['user', 'moderator', 'admin'],
       default: 'user'
     },
+    // Avatar/Profile picture URL
+    avatar: {
+      type: String,
+      default: null
+    },
+    // Interest tags for better matching
+    interests: [{
+      type: String,
+      trim: true,
+      lowercase: true
+    }],
+    // Language preferences for matching
+    languages: [{
+      type: String,
+      trim: true,
+      lowercase: true
+    }],
     flags: {
       isEmailVerified: {
         type: Boolean,
@@ -156,6 +186,18 @@ const userMongooseSchema = new Schema<IUser>(
         default: false
       },
       banReason: String
+    },
+    // Account lockout security fields
+    security: {
+      failedLoginAttempts: {
+        type: Number,
+        default: 0
+      },
+      lastFailedLogin: Date,
+      lockoutUntil: Date,
+      refreshTokens: [{
+        type: String
+      }]
     },
     // Email verification fields
     emailVerificationToken: String,
@@ -215,6 +257,13 @@ userMongooseSchema.index({ 'restrictions.isPermBanned': 1 })
 // Token lookup indexes (for auth flows)
 userMongooseSchema.index({ emailVerificationToken: 1 }, { sparse: true })
 userMongooseSchema.index({ passwordResetToken: 1 }, { sparse: true })
+
+// Interest and language indexes for matching
+userMongooseSchema.index({ interests: 1 })
+userMongooseSchema.index({ languages: 1 })
+
+// Security indexes for lockout
+userMongooseSchema.index({ 'security.lockoutUntil': 1 }, { sparse: true })
 
 // Compound indexes for common queries
 userMongooseSchema.index({ status: 1, type: 1, createdAt: -1 })

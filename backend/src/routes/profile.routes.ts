@@ -3,7 +3,10 @@ import {
   updateProfile, 
   changePassword, 
   upgradeToPro,
-  getUserProfile 
+  getUserProfile,
+  updateInterestsAndLanguages,
+  uploadAvatar,
+  removeAvatar
 } from '../controllers/profile.controller'
 import { auth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
@@ -28,6 +31,14 @@ const changePasswordSchema = z.object({
   })
 })
 
+// Interests and languages update schema
+const interestsLanguagesSchema = z.object({
+  body: z.object({
+    interests: z.array(z.string().min(1).max(50)).max(10).optional(),
+    languages: z.array(z.string().min(2).max(10)).max(5).optional(),
+  })
+})
+
 // Apply auth middleware to all routes
 router.use(auth)
 
@@ -36,6 +47,13 @@ router.get('/', getUserProfile)
 
 // Update profile
 router.put('/', validate(updateProfileSchema), updateProfile)
+
+// Update interests and languages
+router.put('/preferences', validate(interestsLanguagesSchema), updateInterestsAndLanguages)
+
+// Avatar routes
+router.post('/avatar', uploadAvatar)
+router.delete('/avatar', removeAvatar)
 
 // Change password
 router.put('/password', validate(changePasswordSchema), changePassword)

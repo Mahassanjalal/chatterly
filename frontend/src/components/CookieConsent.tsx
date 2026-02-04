@@ -15,11 +15,23 @@ const CookieConsent = () => {
 
   const handleAccept = () => {
     localStorage.setItem("chatterly_cookie_consent", "accepted");
+    localStorage.setItem("chatterly_cookie_preferences", JSON.stringify({
+      essential: true,
+      functional: true,
+      analytics: true,
+      marketing: true,
+    }));
     setIsVisible(false);
   };
 
   const handleDecline = () => {
     localStorage.setItem("chatterly_cookie_consent", "declined");
+    localStorage.setItem("chatterly_cookie_preferences", JSON.stringify({
+      essential: true,
+      functional: false,
+      analytics: false,
+      marketing: false,
+    }));
     setIsVisible(false);
   };
 
@@ -31,13 +43,19 @@ const CookieConsent = () => {
         <div className="text-sm text-gray-700">
           <p>
             We use cookies to enhance your experience, analyze site traffic, and for security purposes. 
-            By clicking &quot;Accept&quot;, you agree to our use of cookies as described in our{" "}
+            By clicking &quot;Accept All&quot;, you agree to our use of cookies as described in our{" "}
             <Link href="/privacy" className="text-purple-600 hover:underline font-medium">
               Privacy Policy
             </Link>.
           </p>
         </div>
-        <div className="flex gap-4 shrink-0">
+        <div className="flex gap-4 shrink-0 items-center">
+          <Link
+            href="/cookie-preferences"
+            className="px-4 py-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+          >
+            Customize
+          </Link>
           <button
             onClick={handleDecline}
             className="px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
