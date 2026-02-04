@@ -1,4 +1,4 @@
-import { Request, Response } from 'express'
+import { Response } from 'express'
 import { User } from '../models/user.model'
 import { AppError } from '../middleware/error'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -7,10 +7,11 @@ import { logger } from '../config/logger'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { AuthRequest } from '../middleware/auth'
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
     const uploadDir = path.join(__dirname, '../../uploads/avatars')
     // Ensure directory exists
     if (!fs.existsSync(uploadDir)) {
@@ -18,9 +19,10 @@ const storage = multer.diskStorage({
     }
     cb(null, uploadDir)
   },
-  filename: (req, file, cb) => {
-    const userId = (req as Request).user?._id
-    const ext = path.extname(file.originalname)
+  filename: (req, _file, cb) => {
+    const authReq = req as AuthRequest
+    const userId = authReq.user?._id
+    const ext = path.extname(_file.originalname)
     cb(null, `${userId}-${Date.now()}${ext}`)
   }
 })
@@ -30,7 +32,7 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true)
@@ -42,7 +44,7 @@ const upload = multer({
 
 // Get user profile
 // Get user profile by ID
-export const getUserProfile = asyncHandler(async (req: Request, res: Response) => {
+export const getUserProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await User.findById(req.user?._id).select('-password')
   if (!user) {
     throw new AppError(404, 'User not found')
@@ -67,7 +69,7 @@ export const getUserProfile = asyncHandler(async (req: Request, res: Response) =
 })
 
 // Update user profile
-export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { name, email, gender } = req.body
   const userId = req.user?._id
 
@@ -117,8 +119,11 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   })
 })
 
+// Import preference limits from routes
+import { PREFERENCE_LIMITS } from '../routes/profile.routes'
+
 // Update interests and languages for matching preferences
-export const updateInterestsAndLanguages = asyncHandler(async (req: Request, res: Response) => {
+export const updateInterestsAndLanguages = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { interests, languages } = req.body
   const userId = req.user?._id
 
@@ -128,14 +133,14 @@ export const updateInterestsAndLanguages = asyncHandler(async (req: Request, res
     // Normalize interests (lowercase, trimmed, unique)
     updateData.interests = [...new Set(
       interests.map((i: string) => i.toLowerCase().trim()).filter((i: string) => i.length > 0)
-    )].slice(0, 10) // Max 10 interests
+    )].slice(0, PREFERENCE_LIMITS.maxInterests)
   }
   
   if (languages !== undefined) {
     // Normalize languages (lowercase, trimmed, unique)
     updateData.languages = [...new Set(
       languages.map((l: string) => l.toLowerCase().trim()).filter((l: string) => l.length > 0)
-    )].slice(0, 5) // Max 5 languages
+    )].slice(0, PREFERENCE_LIMITS.maxLanguages)
   }
 
   const updatedUser = await User.findByIdAndUpdate(
@@ -158,7 +163,7 @@ export const updateInterestsAndLanguages = asyncHandler(async (req: Request, res
 })
 
 // Upload avatar
-export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => {
+export const uploadAvatar = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId = req.user?._id
 
   // Use multer middleware
@@ -200,7 +205,7 @@ export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => 
 })
 
 // Remove avatar
-export const removeAvatar = asyncHandler(async (req: Request, res: Response) => {
+export const removeAvatar = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId = req.user?._id
 
   const user = await User.findById(userId)
@@ -227,7 +232,7 @@ export const removeAvatar = asyncHandler(async (req: Request, res: Response) => 
 })
 
 // Change password
-export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+export const changePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { currentPassword, newPassword } = req.body
   const userId = req.user?._id
 
@@ -260,7 +265,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 })
 
 // Upgrade to Pro
-export const upgradeToPro = asyncHandler(async (req: Request, res: Response) => {
+export const upgradeToPro = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId = req.user?._id
 
   const user = await User.findById(userId)

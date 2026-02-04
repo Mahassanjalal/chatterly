@@ -215,7 +215,10 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   // Check if account is locked
   if (user && isAccountLocked(user)) {
     const remainingTime = getRemainingLockoutTime(user)
-    throw new AppError(423, `Account is locked. Try again in ${Math.ceil(remainingTime / 60)} minutes.`)
+    const timeMessage = remainingTime < 60 
+      ? `${remainingTime} seconds`
+      : `${Math.ceil(remainingTime / 60)} minutes`
+    throw new AppError(423, `Account is locked. Try again in ${timeMessage}.`)
   }
   
   if (!user || !(await user.comparePassword(password))) {
@@ -272,9 +275,14 @@ export const refreshAccessToken = asyncHandler(async (req: Request, res: Respons
   })
 
   if (!user) {
-    // Potential token theft - clear all refresh tokens for security
-    // This could be a stolen token being reused
-    throw new AppError(401, 'Invalid refresh token. Please login again.')
+    // Token not found - this could indicate:
+    // 1. Token was already rotated (legitimate request with old token)
+    // 2. Token was never valid
+    // 3. Token theft attempt where attacker is reusing a rotated token
+    // 
+    // We can't clear tokens here since we don't know which user,
+    // but the client should re-authenticate
+    throw new AppError(401, 'Invalid or expired refresh token. Please login again.')
   }
 
   // Remove old refresh token (rotation)

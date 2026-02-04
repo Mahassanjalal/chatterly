@@ -10,6 +10,7 @@ import {
 } from '../controllers/profile.controller'
 import { auth } from '../middleware/auth'
 import { validate } from '../middleware/validate'
+import { apiLimiter } from '../middleware/rateLimiter'
 import { z } from 'zod'
 
 const router = Router()
@@ -31,16 +32,25 @@ const changePasswordSchema = z.object({
   })
 })
 
+// Preference limits - shared between validation and controller
+export const PREFERENCE_LIMITS = {
+  maxInterests: 10,
+  maxLanguages: 5,
+  maxInterestLength: 50,
+  maxLanguageLength: 10,
+}
+
 // Interests and languages update schema
 const interestsLanguagesSchema = z.object({
   body: z.object({
-    interests: z.array(z.string().min(1).max(50)).max(10).optional(),
-    languages: z.array(z.string().min(2).max(10)).max(5).optional(),
+    interests: z.array(z.string().min(1).max(PREFERENCE_LIMITS.maxInterestLength)).max(PREFERENCE_LIMITS.maxInterests).optional(),
+    languages: z.array(z.string().min(2).max(PREFERENCE_LIMITS.maxLanguageLength)).max(PREFERENCE_LIMITS.maxLanguages).optional(),
   })
 })
 
-// Apply auth middleware to all routes
+// Apply auth and rate limiting middleware to all routes
 router.use(auth)
+router.use(apiLimiter)
 
 // Get user profile
 router.get('/', getUserProfile)

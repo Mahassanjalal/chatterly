@@ -234,6 +234,9 @@ class VideoModerationService {
    *     MinConfidence: 40,
    *   });
    *   const response = await client.send(command);
+   *   // Note: Implement parseRekognitionResult to convert AWS response
+   *   // to VideoModerationResult format. Parse ModerationLabels from
+   *   // response.ModerationLabels and map to appropriate categories.
    *   return this.parseRekognitionResult(response);
    * }
    */

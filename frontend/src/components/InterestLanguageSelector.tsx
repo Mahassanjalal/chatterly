@@ -57,11 +57,14 @@ export default function InterestLanguageSelector({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
 
+  // Normalize interests for comparison (ensure all lowercase)
+  const normalizedInterests = interests.map(i => i.toLowerCase().trim());
+
   // Toggle interest selection
   const toggleInterest = (interest: string) => {
     const normalizedInterest = interest.toLowerCase().trim();
-    if (interests.includes(normalizedInterest)) {
-      onInterestsChange(interests.filter(i => i !== normalizedInterest));
+    if (normalizedInterests.includes(normalizedInterest)) {
+      onInterestsChange(interests.filter(i => i.toLowerCase().trim() !== normalizedInterest));
     } else if (interests.length < maxInterests) {
       onInterestsChange([...interests, normalizedInterest]);
     }
@@ -72,7 +75,7 @@ export default function InterestLanguageSelector({
     e.preventDefault();
     if (customInterest.trim() && interests.length < maxInterests) {
       const normalizedInterest = customInterest.toLowerCase().trim();
-      if (!interests.includes(normalizedInterest)) {
+      if (!normalizedInterests.includes(normalizedInterest)) {
         onInterestsChange([...interests, normalizedInterest]);
         setCustomInterest("");
       }
@@ -143,7 +146,7 @@ export default function InterestLanguageSelector({
               {activeCategory === category && (
                 <div className="p-4 flex flex-wrap gap-2">
                   {categoryInterests.map((interest) => {
-                    const isSelected = interests.includes(interest.toLowerCase());
+                    const isSelected = normalizedInterests.includes(interest.toLowerCase());
                     return (
                       <button
                         key={interest}
