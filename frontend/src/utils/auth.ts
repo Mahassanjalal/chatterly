@@ -6,6 +6,8 @@ export interface User {
   email: string;
   gender?: 'male' | 'female' | 'other';
   type: 'free' | 'pro';
+  role?: 'user' | 'moderator' | 'admin';
+  isEmailVerified?: boolean;
 }
 
 export interface AuthResponse {
@@ -52,6 +54,18 @@ export const clearAuthData = (): void => {
 // Check if user is authenticated
 export const isAuthenticated = (): boolean => {
   return getUser() !== null;
+};
+
+// Check if user is admin
+export const isAdmin = (): boolean => {
+  const user = getUser();
+  return user?.role === 'admin';
+};
+
+// Check if user is moderator or admin
+export const isModerator = (): boolean => {
+  const user = getUser();
+  return user?.role === 'admin' || user?.role === 'moderator';
 };
 
 // API request with auth header
@@ -141,4 +155,141 @@ export const logout = async (): Promise<void> => {
   } finally {
     clearAuthData();
   }
+};
+
+// Verify email
+export const verifyEmail = async (token: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Verification failed');
+  }
+
+  return result;
+};
+
+// Resend verification email
+export const resendVerificationEmail = async (): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/auth/resend-verification', {
+    method: 'POST',
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to resend verification email');
+  }
+
+  return result;
+};
+
+// Forgot password
+export const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to send password reset email');
+  }
+
+  return result;
+};
+
+// Reset password
+export const resetPassword = async (token: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to reset password');
+  }
+
+  return result;
+};
+
+// Block a user
+export const blockUser = async (userIdToBlock: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/blocking/block', {
+    method: 'POST',
+    body: JSON.stringify({ userIdToBlock }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to block user');
+  }
+
+  return result;
+};
+
+// Unblock a user
+export const unblockUser = async (userIdToUnblock: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/blocking/unblock', {
+    method: 'POST',
+    body: JSON.stringify({ userIdToUnblock }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to unblock user');
+  }
+
+  return result;
+};
+
+// Get blocked users
+export const getBlockedUsers = async (): Promise<{ blockedUsers: Array<{ id: string; name: string }>; count: number }> => {
+  const response = await apiRequest('/blocking');
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to get blocked users');
+  }
+
+  return result;
+};
+
+// Export user data (GDPR)
+export const exportUserData = async (): Promise<Blob> => {
+  const response = await apiRequest('/gdpr/export');
+
+  if (!response.ok) {
+    const result = await response.json();
+    throw new Error(result.error || result.message || 'Failed to export data');
+  }
+
+  return response.blob();
+};
+
+// Delete account (GDPR)
+export const deleteAccount = async (password: string, confirmation: string): Promise<{ success: boolean; message: string }> => {
+  const response = await apiRequest('/gdpr/delete-account', {
+    method: 'POST',
+    body: JSON.stringify({ password, confirmation }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.error || result.message || 'Failed to delete account');
+  }
+
+  clearAuthData();
+  return result;
 };

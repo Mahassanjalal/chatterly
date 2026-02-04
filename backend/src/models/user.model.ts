@@ -52,6 +52,14 @@ export interface IUser extends Document {
     isPermBanned: boolean
     banReason?: string
   }
+  // Email verification fields
+  emailVerificationToken?: string
+  emailVerificationExpires?: Date
+  // Password reset fields
+  passwordResetToken?: string
+  passwordResetExpires?: Date
+  // Blocked users
+  blockedUsers: string[]
   createdAt: Date
   updatedAt: Date
   comparePassword(candidatePassword: string): Promise<boolean>
@@ -148,7 +156,18 @@ const userMongooseSchema = new Schema<IUser>(
         default: false
       },
       banReason: String
-    }
+    },
+    // Email verification fields
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
+    // Password reset fields
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+    // Blocked users
+    blockedUsers: [{
+      type: String,
+      ref: 'User'
+    }]
   },
   {
     timestamps: true,

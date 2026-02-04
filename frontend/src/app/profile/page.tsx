@@ -58,12 +58,28 @@ export default function ProfilePage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold text-white">My Profile</h1>
-            <button
-              onClick={() => router.push('/chat')}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              ← Back to Chat
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => router.push('/settings')}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ⚙️ Settings
+              </button>
+              {(user.role === 'admin' || user.role === 'moderator') && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="bg-yellow-500/80 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  🛡️ Admin
+                </button>
+              )}
+              <button
+                onClick={() => router.push('/chat')}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                ← Back to Chat
+              </button>
+            </div>
           </div>
           
           {/* User Info Header */}
