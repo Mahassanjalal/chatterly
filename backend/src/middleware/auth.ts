@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { appConfig } from '../config/env'
-import { User } from '../models/user.model'
+import { User, IUser } from '../models/user.model'
 import { AppError } from './error'
 
 export interface AuthRequest extends Request {
-  user?: any
+  user?: IUser
   userId?: string
 }
 
@@ -18,7 +18,8 @@ export const auth = async (
     let token = req.header('Authorization')?.replace('Bearer ', '')
 
     if (!token && req.cookies) {
-      token = req.cookies.token
+      // Try access token first, then fall back to legacy token
+      token = req.cookies.accessToken || req.cookies.token
     }
 
     if (!token) {
@@ -30,6 +31,11 @@ export const auth = async (
 
     if (!user) {
       throw new AppError(401, 'User not found')
+    }
+
+    // Check if account is locked
+    if (user.security?.lockoutUntil && new Date(user.security.lockoutUntil) > new Date()) {
+      throw new AppError(423, 'Account is locked')
     }
 
     req.user = user
@@ -45,7 +51,8 @@ export const auth = async (
     }
     
     if (error instanceof jwt.TokenExpiredError) {
-      return next(new AppError(401, 'Token expired'))
+      // Token expired - client should use refresh token
+      return next(new AppError(401, 'Token expired. Please refresh your session.'))
     }
     
     next(new AppError(401, 'Authentication failed'))

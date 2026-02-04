@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { signup, login, logout, me, verifyEmail, resendVerificationEmail, forgotPassword, resetPassword } from '../controllers/auth.controller'
+import { signup, login, logout, logoutAll, me, verifyEmail, resendVerificationEmail, forgotPassword, resetPassword, refreshAccessToken } from '../controllers/auth.controller'
 import { validate } from '../middleware/validate'
 import { userSchema } from '../models/user.model'
 import { auth } from '../middleware/auth'
@@ -45,6 +45,8 @@ router.use(apiLimiter)
 router.post('/register', validate(registerSchema), signup)
 router.post('/login', validate(loginSchema), login)
 router.post('/logout', logout)
+router.post('/logout-all', auth, logoutAll)
+router.post('/refresh-token', refreshAccessToken)
 router.get('/me', auth, me)
 
 // Email verification routes
