@@ -6,6 +6,7 @@ import { AppError } from './error'
 
 export interface AuthRequest extends Request {
   user?: any
+  userId?: string
 }
 
 export const auth = async (
@@ -32,6 +33,7 @@ export const auth = async (
     }
 
     req.user = user
+    req.userId = user.id
     next()
   } catch (error) {
     if (error instanceof AppError) {
@@ -49,3 +51,6 @@ export const auth = async (
     next(new AppError(401, 'Authentication failed'))
   }
 }
+
+// Alias for backward compatibility
+export const authMiddleware = auth
