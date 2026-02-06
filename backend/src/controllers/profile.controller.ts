@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
     cb(null, uploadDir)
   },
   filename: (req, _file, cb) => {
-    const authReq = req as AuthRequest
+    const authReq = req as unknown as AuthRequest
     const userId = authReq.user?._id
     const ext = path.extname(_file.originalname)
     cb(null, `${userId}-${Date.now()}${ext}`)
@@ -166,8 +166,8 @@ export const updateInterestsAndLanguages = asyncHandler(async (req: AuthRequest,
 export const uploadAvatar = asyncHandler(async (req: AuthRequest, res: Response) => {
   const userId = req.user?._id
 
-  // Use multer middleware
-  upload(req, res, async (err) => {
+  // Use multer middleware, cast req and res to any for multer compatibility
+  upload(req as any, res as any, async (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' })
@@ -177,7 +177,9 @@ export const uploadAvatar = asyncHandler(async (req: AuthRequest, res: Response)
       return res.status(400).json({ message: err.message })
     }
 
-    if (!req.file) {
+    // req is still AuthRequest here
+    const reqWithFile = req as AuthRequest & { file?: Express.Multer.File }
+    if (!reqWithFile.file) {
       return res.status(400).json({ message: 'No file uploaded' })
     }
 
@@ -192,7 +194,7 @@ export const uploadAvatar = asyncHandler(async (req: AuthRequest, res: Response)
     }
 
     // Update user with new avatar URL
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`
+    const avatarUrl = `/uploads/avatars/${reqWithFile.file.filename}`
     await User.findByIdAndUpdate(userId, { avatar: avatarUrl })
 
     logger.info(`Avatar uploaded for user: ${userId}`)

@@ -28,18 +28,17 @@ import healthRoutes from './routes/health.routes'
 const app = express()
 const server = http.createServer(app)
 
-// Initialize Sentry (before other middleware)
-initSentry(app)
+// // Initialize Sentry (before other middleware)
+// initSentry(app)
 
-// Sentry request handler (must be first)
-if (process.env.SENTRY_DSN) {
-  app.use(sentryRequestHandler)
-  app.use(sentryTracingHandler)
-}
+// // Sentry request handler (must be first)
+// if (process.env.SENTRY_DSN) {
+//   app.use(sentryRequestHandler)
+//   app.use(sentryTracingHandler)
+// }
 
 // Initialize socket service
 new SocketService(server)
-
 // Middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -77,9 +76,9 @@ app.use('/api/notifications', notificationRoutes)
 app.use('/health', healthRoutes)
 
 // Sentry error handler (before other error handlers)
-if (process.env.SENTRY_DSN) {
-  app.use(sentryErrorHandler)
-}
+// if (process.env.SENTRY_DSN) {
+//   app.use(sentryErrorHandler)
+// }
 
 // Error handling
 app.use(errorHandler)
@@ -89,7 +88,7 @@ const start = async () => {
   try {
     // Connect to MongoDB
     await connectToMongoDB()
-    
+
     // Connect to Redis
     await connectToRedis()
     

@@ -205,7 +205,7 @@ export class DistributedMatchingService {
       for (let i = 0; i < userIds.length; i++) {
         if (!userData[i]) continue;
         
-        const waitingUser: QueuedUser = JSON.parse(userData[i]);
+        const waitingUser: QueuedUser = JSON.parse(userData[i] as string);
         
         // Skip self
         if (waitingUser.userId === newUser.userId) continue;

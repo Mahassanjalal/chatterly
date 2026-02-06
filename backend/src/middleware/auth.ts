@@ -5,7 +5,7 @@ import { User, IUser } from '../models/user.model'
 import { AppError } from './error'
 
 export interface AuthRequest extends Request {
-  user?: IUser
+  user?: { [key: string]: unknown; _id: string } & IUser
   userId?: string
 }
 
@@ -38,8 +38,11 @@ export const auth = async (
       throw new AppError(423, 'Account is locked')
     }
 
-    req.user = user
-    req.userId = user.id
+    // Convert Mongoose document to plain object and ensure _id is string
+    const plainUser = user.toObject ? user.toObject() : { ...user };
+    plainUser._id = user._id.toString();
+    req.user = plainUser as { [key: string]: unknown; _id: string } & IUser;
+    req.userId = user.id;
     next()
   } catch (error) {
     if (error instanceof AppError) {

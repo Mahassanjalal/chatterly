@@ -7,14 +7,14 @@ import { appConfig } from '../config/env'
 import jwt from 'jsonwebtoken'
 import { User } from '../models/user.model'
 import { advancedMatchingService, MatchingPreferences } from './advanced-matching.service'
-import { distributedMatchingService } from './distributed-matching.service'
-import { moderationService } from './moderation.service'
+// import { distributedMatchingService } from './distributed-matching.service'
+// import { moderationService } from './moderation.service'
 import { aiModerationService } from './ai-moderation.service'
 import { metricsService } from './metrics.service'
 import { subscriptionService } from './subscription.service'
 import { notificationService } from './notification.service'
 import { cacheService, CACHE_CONFIGS } from './cache.service'
-import { getWebRTCConfig, evaluateConnectionQuality, ConnectionQuality } from '../config/webrtc'
+import { getWebRTCConfig, evaluateConnectionQuality } from '../config/webrtc'
 import { redis } from '../config/redis'
 
 interface AuthenticatedSocket extends Socket {
@@ -42,12 +42,18 @@ export class SocketService {
   private userSocketMap: Map<string, string> = new Map() // userId -> socketId for quick lookup
 
   constructor(server: HttpServer) {
+    // console.log('appConfig.cors.origin', appConfig.cors.origin);
     this.io = new Server(server, {
       cors: {
         origin: appConfig.cors.origin,
+        credentials: true,
         methods: ['GET', 'POST'],
       },
-      ...SOCKET_CONFIG,
+      transports: ["websocket", "polling"],
+      pingTimeout: SOCKET_CONFIG.pingTimeout,
+      pingInterval: SOCKET_CONFIG.pingInterval,
+      perMessageDeflate: SOCKET_CONFIG.perMessageDeflate,
+      maxHttpBufferSize: SOCKET_CONFIG.maxHttpBufferSize,
     })
 
     // Set up notification service socket emitter

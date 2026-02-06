@@ -22,7 +22,7 @@ router.use(subscriptionRateLimiter);
  * GET /api/subscription/plans
  * Get all available subscription plans
  */
-router.get('/plans', async (req, res) => {
+router.get('/plans', async (req:any, res:any) => {
   try {
     const plans = subscriptionService.getAvailablePlans();
     res.json({
@@ -39,7 +39,7 @@ router.get('/plans', async (req, res) => {
  * GET /api/subscription/status
  * Get current user's subscription status
  */
-router.get('/status', authMiddleware, async (req, res) => {
+router.get('/status', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const status = await subscriptionService.getUserSubscription(userId);
@@ -58,7 +58,7 @@ router.get('/status', authMiddleware, async (req, res) => {
  * GET /api/subscription/features
  * Get feature gates for current user
  */
-router.get('/features', authMiddleware, async (req, res) => {
+router.get('/features', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const subscription = await subscriptionService.getUserSubscription(userId);
@@ -82,7 +82,7 @@ router.get('/features', authMiddleware, async (req, res) => {
  * POST /api/subscription/upgrade
  * Upgrade user's subscription (simplified)
  */
-router.post('/upgrade', authMiddleware, async (req, res) => {
+router.post('/upgrade', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const { plan } = req.body;
@@ -118,7 +118,7 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
  * POST /api/subscription/check-action
  * Check if user can perform a specific action
  */
-router.post('/check-action', authMiddleware, async (req, res) => {
+router.post('/check-action', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const { action, currentCount } = req.body;

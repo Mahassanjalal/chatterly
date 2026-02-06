@@ -1,11 +1,12 @@
 import { logger } from '../config/logger'
-const Filter = require('bad-words')
+// const Filter = require('bad-words')
+import {filter as Filter} from '../utils/filter';
 
 export class ModerationService {
   private filter: any
 
   constructor() {
-    this.filter = new Filter()
+    this.filter = Filter
     // Add custom words if needed
     // this.filter.addWords('customword1', 'customword2')
   }

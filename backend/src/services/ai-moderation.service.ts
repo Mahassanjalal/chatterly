@@ -2,7 +2,8 @@ import { logger } from '../config/logger';
 
 // bad-words uses CommonJS exports, so we need to use require
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const BadWordsFilter = require('bad-words');
+import {filter as BadWordsFilter, filter} from '../utils/filter';
+// const BadWordsFilter = require('bad-words').then((mod: any) => mod.default || mod);
 
 /**
  * AI-Powered Moderation Service
@@ -87,7 +88,7 @@ export class AIModerationService {
   private maxContextLength = 10;
 
   constructor(config: Partial<ModerationConfig> = {}) {
-    this.filter = new BadWordsFilter() as BadWordsFilterInstance;
+    this.filter = BadWordsFilter as unknown as BadWordsFilterInstance;
     this.config = { ...DEFAULT_CONFIG, ...config };
     
     // Add custom words to the filter

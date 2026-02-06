@@ -9,7 +9,7 @@ const router = express.Router();
  * GET /api/analytics/dashboard
  * Get dashboard data for admin/analytics view
  */
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', async (req:any, res:any) => {
   try {
     const dashboardData = metricsService.getDashboardData();
     const matchingMetrics = advancedMatchingService.getMetrics();
@@ -31,7 +31,7 @@ router.get('/dashboard', async (req, res) => {
  * GET /api/analytics/metrics
  * Get Prometheus-formatted metrics
  */
-router.get('/metrics', async (req, res) => {
+router.get('/metrics', async (req:any, res:any) => {
   try {
     const metrics = metricsService.getPrometheusMetrics();
     res.type('text/plain').send(metrics);
@@ -45,7 +45,7 @@ router.get('/metrics', async (req, res) => {
  * GET /api/analytics/health
  * Health check endpoint with detailed status
  */
-router.get('/health', async (req, res) => {
+router.get('/health', async (req:any, res:any) => {
   try {
     const dashboard = metricsService.getDashboardData();
     
@@ -92,7 +92,7 @@ router.get('/health', async (req, res) => {
  * GET /api/analytics/queue-stats
  * Get current queue statistics
  */
-router.get('/queue-stats', async (req, res) => {
+router.get('/queue-stats', async (req:any, res:any) => {
   try {
     const queueStats = advancedMatchingService.getQueueStats();
     const dashboardData = metricsService.getDashboardData();

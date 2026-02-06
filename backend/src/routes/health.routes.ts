@@ -12,7 +12,7 @@ const router = Router();
  */
 router.get(
   '/',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const health = await healthService.getHealth(false);
     const statusCode = health.status === 'healthy' ? 200 : 
                        health.status === 'degraded' ? 200 : 503;
@@ -27,7 +27,7 @@ router.get(
  */
 router.get(
   '/live',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const liveness = await healthService.getLiveness();
     res.json(liveness);
   })
@@ -40,7 +40,7 @@ router.get(
  */
 router.get(
   '/ready',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const readiness = await healthService.getReadiness();
     const statusCode = readiness.status === 'ready' ? 200 : 503;
     res.status(statusCode).json(readiness);
@@ -54,7 +54,7 @@ router.get(
  */
 router.get(
   '/detailed',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const health = await healthService.getHealth(true);
     res.json(health);
   })
@@ -67,7 +67,7 @@ router.get(
  */
 router.get(
   '/metrics',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const metrics = metricsService.getPrometheusMetrics();
     res.set('Content-Type', 'text/plain');
     res.send(metrics);
@@ -81,7 +81,7 @@ router.get(
  */
 router.get(
   '/dashboard',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const dashboard = await healthService.getDashboardMetrics();
     res.json(dashboard);
   })

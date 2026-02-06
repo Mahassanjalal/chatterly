@@ -18,7 +18,7 @@ router.use(apiLimiter);
 router.get(
   '/',
   auth,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const userId = req.user?._id;
     if (!userId) {
       throw new AppError(401, 'Unauthorized');
@@ -48,7 +48,7 @@ router.get(
 router.get(
   '/unread-count',
   auth,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const userId = req.user?._id;
     if (!userId) {
       throw new AppError(401, 'Unauthorized');
@@ -71,7 +71,7 @@ router.get(
 router.post(
   '/:id/read',
   auth,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const userId = req.user?._id;
     if (!userId) {
       throw new AppError(401, 'Unauthorized');
@@ -99,7 +99,7 @@ router.post(
 router.post(
   '/read-all',
   auth,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const userId = req.user?._id;
     if (!userId) {
       throw new AppError(401, 'Unauthorized');
@@ -123,7 +123,7 @@ router.post(
 router.delete(
   '/:id',
   auth,
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (req:any, res:any) => {
     const userId = req.user?._id;
     if (!userId) {
       throw new AppError(401, 'Unauthorized');

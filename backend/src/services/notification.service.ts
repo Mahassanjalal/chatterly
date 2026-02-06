@@ -512,4 +512,4 @@ export class NotificationService {
 export const notificationService = new NotificationService();
 
 // Export types
-export { NotificationType, NotificationPriority, Notification };
+// export { NotificationType, NotificationPriority, Notification };

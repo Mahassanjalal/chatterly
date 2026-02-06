@@ -1,6 +1,7 @@
 import mongoose from 'mongoose'
 import { appConfig } from './env'
 import { logger } from './logger'
+import { log } from 'console'
 
 /**
  * MongoDB Connection Configuration
@@ -15,6 +16,7 @@ import { logger } from './logger'
 
 export async function connectToMongoDB(): Promise<void> {
   try {
+    logger.info('Connecting to MongoDB...')
     await mongoose.connect(appConfig.mongodb.uri, {
       // Connection pooling - crucial for high concurrency
       maxPoolSize: 100, // Maximum connections in the pool

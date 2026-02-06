@@ -23,7 +23,7 @@ router.use(webrtcRateLimiter);
  * GET /api/webrtc/config
  * Get WebRTC configuration including ICE servers
  */
-router.get('/config', authMiddleware, async (req, res) => {
+router.get('/config', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const config = getWebRTCConfig(userId, true);
@@ -54,7 +54,7 @@ router.get('/config', authMiddleware, async (req, res) => {
  * POST /api/webrtc/optimal-quality
  * Calculate optimal quality based on bandwidth
  */
-router.post('/optimal-quality', authMiddleware, async (req, res) => {
+router.post('/optimal-quality', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const { bandwidth } = req.body;
@@ -95,7 +95,7 @@ router.post('/optimal-quality', authMiddleware, async (req, res) => {
  * GET /api/webrtc/ice-servers
  * Get just the ICE servers (for WebRTC initialization)
  */
-router.get('/ice-servers', authMiddleware, async (req, res) => {
+router.get('/ice-servers', authMiddleware, async (req:any, res:any) => {
   try {
     const userId = (req as any).userId;
     const config = getWebRTCConfig(userId, true);
