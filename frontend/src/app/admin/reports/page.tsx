@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { isModerator, apiRequest } from "../../../utils/auth";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Shield,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Ban,
+  UserMinus,
+  Eye,
+  XCircle,
+  MessageSquare
+} from "lucide-react";
+import { isAdmin, isModerator, apiRequest } from "../../../utils/auth";
 
 interface Report {
-  _id: string;
+  id: string;
   reportedUserId: string;
   reporterUserId: string;
   reason: string;
@@ -25,272 +39,366 @@ interface Report {
   };
 }
 
-interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
+interface ReportsResponse {
+  reports: Report[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
 }
 
-export default function ReportsModerationQueue() {
+export default function AdminReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalReports, setTotalReports] = useState(0);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionType, setActionType] = useState<'warn' | 'suspend' | 'ban' | 'dismiss' | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (!isModerator()) {
+    if (!isAdmin() && !isModerator()) {
       router.push('/');
       return;
     }
     fetchReports();
-  }, [router, pagination.page, statusFilter]);
+  }, [router, currentPage, statusFilter]);
 
   const fetchReports = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.set('page', pagination.page.toString());
-      params.set('limit', pagination.limit.toString());
-      if (statusFilter) params.set('status', statusFilter);
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '20',
+      });
+
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
 
       const response = await apiRequest(`/admin/reports?${params.toString()}`);
-      const data = await response.json();
-      
+      if (!response.ok) {
+        throw new Error('Failed to fetch reports');
+      }
+      const data: ReportsResponse = await response.json();
       setReports(data.reports);
-      setPagination(data.pagination);
-    } catch (error) {
-      console.error('Error fetching reports:', error);
+      setTotalPages(data.pagination.pages);
+      setTotalReports(data.pagination.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   const handleAction = async (reportId: string, action: 'warn' | 'suspend' | 'ban' | 'dismiss', reason?: string) => {
-    setActionLoading(reportId);
+    setActionLoading(true);
     try {
       const response = await apiRequest(`/admin/reports/${reportId}/action`, {
         method: 'POST',
-        body: JSON.stringify({ action, reason, duration: 24 }),
+        body: JSON.stringify({ action, reason }),
       });
-      
-      if (response.ok) {
-        setSelectedReport(null);
-        fetchReports();
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${action} report`);
       }
-    } catch (error) {
-      console.error('Error performing action:', error);
+
+      fetchReports();
+      setSelectedReport(null);
+      setActionType(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to take action`);
     } finally {
-      setActionLoading(null);
+      setActionLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (reportId: string, status: string, notes?: string) => {
-    setActionLoading(reportId);
-    try {
-      const response = await apiRequest(`/admin/reports/${reportId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, moderatorNotes: notes }),
-      });
-      
-      if (response.ok) {
-        fetchReports();
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-    } finally {
-      setActionLoading(null);
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full text-xs"><Clock className="w-3 h-3" /> Pending</span>;
+      case 'investigating':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs"><Eye className="w-3 h-3" /> Investigating</span>;
+      case 'resolved':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs"><CheckCircle className="w-3 h-3" /> Resolved</span>;
+      case 'dismissed':
+        return <span className="inline-flex items-center gap-1 px-2 py-1 bg-slate-500/20 text-slate-400 rounded-full text-xs"><XCircle className="w-3 h-3" /> Dismissed</span>;
+      default:
+        return null;
     }
   };
 
-  const getReasonLabel = (reason: string) => {
-    const labels: Record<string, string> = {
-      inappropriate_behavior: '🔞 Inappropriate',
-      harassment: '😠 Harassment',
-      spam: '📧 Spam',
-      underage: '👶 Underage',
-      other: '📋 Other',
-    };
-    return labels[reason] || reason;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Moderation Queue</h1>
-            <p className="text-gray-600">Review and action user reports</p>
-          </div>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-white text-gray-700 rounded-lg shadow hover:bg-gray-50"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <h1 className="text-2xl font-bold text-white mb-2">Reports & Moderation</h1>
+          <p className="text-slate-400">{totalReports.toLocaleString()} total reports</p>
+        </motion.div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-          <div className="flex gap-2">
-            {['pending', 'investigating', 'resolved', 'dismissed'].map((status) => (
-              <button
-                key={status}
-                onClick={() => {
-                  setStatusFilter(status);
-                  setPagination(p => ({ ...p, page: 1 }));
-                }}
-                className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${
-                  statusFilter === status
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass rounded-xl p-4 mb-6"
+        >
+          <div className="flex flex-col md:flex-row gap-4 justify-between">
+            <div className="flex gap-2">
+              {['pending', 'investigating', 'resolved', 'dismissed', 'all'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => {
+                    setStatusFilter(status);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-4 py-2 rounded-lg transition-all capitalize ${
+                    statusFilter === status
+                      ? 'bg-cyan-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={fetchReports}
+              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Reports List */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-4"
+        >
+          {loading ? (
+            <div className="glass rounded-xl p-8 text-center">
+              <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            </div>
+          ) : error ? (
+            <div className="glass rounded-xl p-8 text-center">
+              <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+              <p className="text-rose-400">{error}</p>
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="glass rounded-xl p-8 text-center">
+              <Shield className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No reports found</p>
+            </div>
+          ) : (
+            reports.map((report, index) => (
+              <motion.div
+                key={report.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="glass rounded-xl p-4"
               >
-                {status}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Reports Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : reports.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-md p-12 text-center">
-            <div className="text-4xl mb-4">✅</div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Reports</h3>
-            <p className="text-gray-600">There are no {statusFilter} reports at this time.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <div key={report._id} className="bg-white rounded-xl shadow-md p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                      report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      report.status === 'investigating' ? 'bg-blue-100 text-blue-800' :
-                      report.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {report.status}
-                    </span>
-                    <span className="ml-2 text-lg font-semibold">
-                      {getReasonLabel(report.reason)}
-                    </span>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-sm text-slate-400">Report #{report.id.slice(-6)}</span>
+                      {getStatusBadge(report.status)}
+                      <span className="text-xs text-slate-500">{formatDate(report.createdAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-4 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white text-sm font-bold">
+                          {report.reportedUser?.name?.charAt(0) || '?'}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{report.reportedUser?.name || 'Unknown User'}</p>
+                          <p className="text-xs text-slate-400">Reported by {report.reporter?.name || 'Unknown'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3">
+                      <p className="text-sm font-medium text-rose-400 mb-1">{report.reason}</p>
+                      {report.description && (
+                        <p className="text-sm text-slate-300">{report.description}</p>
+                      )}
+                    </div>
                   </div>
-                  <span className="text-sm text-gray-500">
-                    {new Date(report.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Reported User</h4>
-                    <p className="font-semibold">{report.reportedUser?.name || 'Unknown'}</p>
-                    <p className="text-sm text-gray-600">{report.reportedUser?.email || 'N/A'}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Reporter</h4>
-                    <p className="font-semibold">{report.reporter?.name || 'Unknown'}</p>
-                    <p className="text-sm text-gray-600">{report.reporter?.email || 'N/A'}</p>
-                  </div>
-                </div>
-
-                {report.description && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Description</h4>
-                    <p className="text-gray-700 bg-gray-50 rounded-lg p-3">{report.description}</p>
-                  </div>
-                )}
-
-                {report.moderatorNotes && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Moderator Notes</h4>
-                    <p className="text-gray-700 bg-blue-50 rounded-lg p-3">{report.moderatorNotes}</p>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
-                  {report.status === 'pending' && (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleUpdateStatus(report._id, 'investigating')}
-                      disabled={actionLoading === report._id}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                      onClick={() => setSelectedReport(report)}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-2"
                     >
-                      Start Investigation
+                      <MessageSquare className="w-4 h-4" />
+                      Review
                     </button>
-                  )}
-                  
-                  {(report.status === 'pending' || report.status === 'investigating') && (
-                    <>
-                      <button
-                        onClick={() => handleAction(report._id, 'warn', 'Warning from report')}
-                        disabled={actionLoading === report._id}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
-                      >
-                        ⚠️ Warn User
-                      </button>
-                      <button
-                        onClick={() => handleAction(report._id, 'suspend', 'Suspended from report')}
-                        disabled={actionLoading === report._id}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
-                      >
-                        ⏸️ Suspend (24h)
-                      </button>
-                      <button
-                        onClick={() => handleAction(report._id, 'ban', 'Banned from report')}
-                        disabled={actionLoading === report._id}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
-                      >
-                        🚫 Ban User
-                      </button>
-                      <button
-                        onClick={() => handleAction(report._id, 'dismiss')}
-                        disabled={actionLoading === report._id}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50"
-                      >
-                        ❌ Dismiss
-                      </button>
-                    </>
-                  )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              </motion.div>
+            ))
+          )}
+        </motion.div>
 
         {/* Pagination */}
-        {reports.length > 0 && (
-          <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} reports
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
-                disabled={pagination.page <= 1}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
-                disabled={pagination.page >= pagination.pages}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+        {!loading && !error && totalPages > 1 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center gap-4 mt-6"
+          >
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg disabled:opacity-50 transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <span className="text-slate-400">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg disabled:opacity-50 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-white" />
+            </button>
+          </motion.div>
         )}
+
+        {/* Action Modal */}
+        <AnimatePresence>
+          {selectedReport && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              onClick={() => {
+                setSelectedReport(null);
+                setActionType(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0.95 }}
+                className="glass rounded-2xl p-6 max-w-md w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-xl font-bold text-white mb-4">Review Report</h3>
+
+                <div className="space-y-4 mb-6">
+                  <div className="bg-slate-800/50 rounded-lg p-4">
+                    <p className="text-sm text-slate-400 mb-1">Reported User</p>
+                    <p className="text-white font-medium">{selectedReport.reportedUser?.name}</p>
+                    <p className="text-sm text-slate-400">{selectedReport.reportedUser?.email}</p>
+                  </div>
+
+                  <div className="bg-slate-800/50 rounded-lg p-4">
+                    <p className="text-sm text-slate-400 mb-1">Reason</p>
+                    <p className="text-rose-400 font-medium">{selectedReport.reason}</p>
+                    {selectedReport.description && (
+                      <p className="text-slate-300 mt-2">{selectedReport.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                {!actionType ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-400">Take action against this user:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setActionType('warn')}
+                        disabled={selectedReport.reportedUser?.name === 'Admin'}
+                        className="px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg transition-colors"
+                      >
+                        <AlertTriangle className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">Warn</span>
+                      </button>
+                      <button
+                        onClick={() => setActionType('suspend')}
+                        disabled={selectedReport.reportedUser?.name === 'Admin'}
+                        className="px-4 py-3 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg transition-colors"
+                      >
+                        <Clock className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">Suspend</span>
+                      </button>
+                      <button
+                        onClick={() => setActionType('ban')}
+                        disabled={selectedReport.reportedUser?.name === 'Admin'}
+                        className="px-4 py-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 rounded-lg transition-colors"
+                      >
+                        <Ban className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">Ban</span>
+                      </button>
+                      <button
+                        onClick={() => handleAction(selectedReport.id, 'dismiss')}
+                        className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+                      >
+                        <XCircle className="w-5 h-5 mx-auto mb-1" />
+                        <span className="text-sm">Dismiss</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-400">
+                      {actionType === 'warn' && 'Send a warning to this user'}
+                      {actionType === 'suspend' && 'Suspend this user'}
+                      {actionType === 'ban' && 'Permanently ban this user'}
+                    </p>
+                    <textarea
+                      placeholder="Add notes (optional)..."
+                      className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                      rows={3}
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setActionType(null)}
+                        className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={() => handleAction(selectedReport.id, actionType)}
+                        disabled={actionLoading}
+                        className="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {actionLoading ? 'Processing...' : 'Confirm'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

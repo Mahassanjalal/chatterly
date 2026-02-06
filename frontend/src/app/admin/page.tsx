@@ -3,7 +3,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUser, isAdmin, apiRequest } from "../../utils/auth";
+import { motion } from "framer-motion";
+import {
+  Users,
+  Shield,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  UserPlus,
+  UserMinus,
+  BarChart3,
+  Activity,
+  Crown,
+  Zap
+} from "lucide-react";
+import { isAdmin, isModerator, apiRequest, getUser } from "../../utils/auth";
 
 interface DashboardStats {
   users: {
@@ -26,10 +41,10 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
+  const user = getUser();
 
   useEffect(() => {
-    // Check if user is admin
-    if (!isAdmin()) {
+    if (!isAdmin() && !isModerator()) {
       router.push('/');
       return;
     }
@@ -55,7 +70,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -64,10 +79,11 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
+          <AlertTriangle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
+          <p className="text-rose-400 mb-4">{error}</p>
           <button
             onClick={() => router.push('/chat')}
-            className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+            className="px-6 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600"
           >
             Go to Chat
           </button>
@@ -76,156 +92,204 @@ export default function AdminDashboard() {
     );
   }
 
-  const user = getUser();
+  const statCards = [
+    {
+      label: "Total Users",
+      value: stats?.users.total || 0,
+      icon: Users,
+      color: "from-cyan-500 to-blue-500",
+      change: "+12%",
+      changeType: "positive"
+    },
+    {
+      label: "Active Users",
+      value: stats?.users.active || 0,
+      icon: Activity,
+      color: "from-emerald-500 to-teal-500",
+      change: "+8%",
+      changeType: "positive"
+    },
+    {
+      label: "Banned Users",
+      value: stats?.users.banned || 0,
+      icon: UserMinus,
+      color: "from-rose-500 to-pink-500",
+      change: "-5%",
+      changeType: "negative"
+    },
+    {
+      label: "Pending Reports",
+      value: stats?.reports.pending || 0,
+      icon: AlertTriangle,
+      color: "from-amber-500 to-orange-500",
+      change: "+3%",
+      changeType: "neutral"
+    },
+    {
+      label: "Verified Users",
+      value: stats?.users.verified || 0,
+      icon: CheckCircle,
+      color: "from-green-500 to-emerald-500",
+      change: "+15%",
+      changeType: "positive"
+    },
+    {
+      label: "PRO Users",
+      value: stats?.users.pro || 0,
+      icon: Crown,
+      color: "from-amber-400 to-yellow-500",
+      change: "+20%",
+      changeType: "positive"
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600">Welcome back, {user?.name}</p>
-          </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
+          <p className="text-slate-400">Welcome back, {user?.name}</p>
+        </motion.div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+          {statCards.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="glass rounded-xl p-4"
+              >
+                <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-2xl font-bold text-white mb-1">{stat.value.toLocaleString()}</p>
+                <p className="text-sm text-slate-400">{stat.label}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+        >
+          <Link
+            href="/admin/users"
+            className="glass rounded-xl p-6 hover:bg-slate-800/50 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">User Management</h3>
+                <p className="text-sm text-slate-400">Manage all users</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/reports"
+            className="glass rounded-xl p-6 hover:bg-slate-800/50 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Reports</h3>
+                <p className="text-sm text-slate-400">{stats?.reports.pending || 0} pending</p>
+              </div>
+            </div>
+          </Link>
+
           <Link
             href="/chat"
-            className="px-4 py-2 bg-white text-gray-700 rounded-lg shadow hover:bg-gray-50"
+            className="glass rounded-xl p-6 hover:bg-slate-800/50 transition-all group"
           >
-            ← Back to App
-          </Link>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Total Users"
-            value={stats?.users.total || 0}
-            icon="👥"
-            color="bg-blue-500"
-          />
-          <StatCard
-            title="Active Users"
-            value={stats?.users.active || 0}
-            icon="✅"
-            color="bg-green-500"
-          />
-          <StatCard
-            title="Pending Reports"
-            value={stats?.reports.pending || 0}
-            icon="⚠️"
-            color="bg-yellow-500"
-          />
-          <StatCard
-            title="New Users (7d)"
-            value={stats?.users.recentRegistrations || 0}
-            icon="📈"
-            color="bg-purple-500"
-          />
-        </div>
-
-        {/* Secondary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">User Status</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Verified</span>
-                <span className="font-semibold text-green-600">{stats?.users.verified || 0}</span>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Zap className="w-6 h-6 text-white" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Pro Users</span>
-                <span className="font-semibold text-purple-600">{stats?.users.pro || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Suspended</span>
-                <span className="font-semibold text-yellow-600">{stats?.users.suspended || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Banned</span>
-                <span className="font-semibold text-red-600">{stats?.users.banned || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Reports</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Reports</span>
-                <span className="font-semibold">{stats?.reports.total || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Pending Review</span>
-                <span className="font-semibold text-yellow-600">{stats?.reports.pending || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Link
-                href="/admin/users"
-                className="block w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                👥 Manage Users
-              </Link>
-              <Link
-                href="/admin/reports"
-                className="block w-full py-2 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                ⚠️ Review Reports
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/admin/users" className="block">
-            <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl">
-                  👥
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">User Management</h3>
-                  <p className="text-gray-600">View, search, and manage all users</p>
-                </div>
+              <div>
+                <h3 className="font-semibold text-white">Live Chat</h3>
+                <p className="text-sm text-slate-400">Join the platform</p>
               </div>
             </div>
           </Link>
 
-          <Link href="/admin/reports" className="block">
-            <div className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-2xl">
-                  ⚠️
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Moderation Queue</h3>
-                  <p className="text-gray-600">Review and action user reports</p>
-                </div>
+          <Link
+            href="/settings"
+            className="glass rounded-xl p-6 hover:bg-slate-800/50 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Settings</h3>
+                <p className="text-sm text-slate-400">Account settings</p>
               </div>
             </div>
           </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
+        </motion.div>
 
-function StatCard({ title, value, icon, color }: { title: string; value: number; icon: string; color: string }) {
-  return (
-    <div className="bg-white rounded-xl shadow-md p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-600 text-sm">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value.toLocaleString()}</p>
-        </div>
-        <div className={`w-12 h-12 ${color} rounded-full flex items-center justify-center text-2xl text-white`}>
-          {icon}
-        </div>
+        {/* Recent Activity Summary */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="glass rounded-xl p-6"
+        >
+          <h2 className="text-xl font-bold text-white mb-4">Platform Overview</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-2">
+                <UserPlus className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-2xl font-bold text-white">{stats?.users.recentRegistrations || 0}</p>
+              <p className="text-sm text-slate-400">New Users (7 days)</p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-500 to-pink-500 flex items-center justify-center mx-auto mb-2">
+                <UserMinus className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-2xl font-bold text-white">{stats?.users.suspended || 0}</p>
+              <p className="text-sm text-slate-400">Suspended Users</p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-2">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-2xl font-bold text-white">{stats?.reports.total || 0}</p>
+              <p className="text-sm text-slate-400">Total Reports</p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-2">
+                <TrendingUp className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-2xl font-bold text-white">
+                {stats ? Math.round((stats.users.verified / stats.users.total) * 100) : 0}%
+              </p>
+              <p className="text-sm text-slate-400">Verification Rate</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

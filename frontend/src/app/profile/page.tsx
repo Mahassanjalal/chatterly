@@ -23,6 +23,7 @@ import { getUser, isAuthenticated, User as UserType } from "../../utils/auth";
 import ProfileEditForm from "../../components/ProfileEditForm";
 import PasswordChangeForm from "../../components/PasswordChangeForm";
 import ProUpgrade from "../../components/ProUpgrade";
+import ChatLayout from "../chat/layout";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -60,8 +61,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('chatterly_user');
     router.push('/');
   };
 
@@ -92,41 +92,8 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Navigation */}
-      <motion.nav 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="glass border-b border-slate-800 sticky top-0 z-50"
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                <Users className="w-5 h-5 text-slate-900" />
-              </div>
-              <span className="text-xl font-bold gradient-text">Chatterly</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => router.push('/chat')}
-                className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back to Chat</span>
-              </button>
-              <button
-                onClick={() => router.push('/settings')}
-                className="p-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.nav>
-
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <ChatLayout>
+<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile Header */}
         <motion.div 
           initial="initial"
@@ -278,6 +245,42 @@ export default function ProfilePage() {
           </motion.div>
         </AnimatePresence>
       </div>
-    </div>
+    </ChatLayout>
+    // <div className="min-h-screen bg-slate-950">
+    //   {/* Navigation */}
+    //   {/* <motion.nav 
+    //     initial={{ y: -100 }}
+    //     animate={{ y: 0 }}
+    //     className="glass border-b border-slate-800 sticky top-0 z-50"
+    //   >
+    //     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    //       <div className="flex items-center justify-between h-16">
+    //         <div className="flex items-center gap-3">
+    //           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+    //             <Users className="w-5 h-5 text-slate-900" />
+    //           </div>
+    //           <span className="text-xl font-bold gradient-text">Chatterly</span>
+    //         </div>
+    //         <div className="flex items-center gap-2">
+    //           <button
+    //             onClick={() => router.push('/chat')}
+    //             className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all flex items-center gap-2"
+    //           >
+    //             <ArrowLeft className="w-4 h-4" />
+    //             <span className="hidden sm:inline">Back to Chat</span>
+    //           </button>
+    //           <button
+    //             onClick={() => router.push('/settings')}
+    //             className="p-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all"
+    //           >
+    //             <Settings className="w-5 h-5" />
+    //           </button>
+    //         </div>
+    //       </div>
+    //     </div>
+    //   </motion.nav> */}
+
+      
+    // </div>
   );
 }

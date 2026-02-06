@@ -1,7 +1,9 @@
 import { Server as HttpServer } from 'http'
 import { Server, Socket } from 'socket.io'
-import { createAdapter } from '@socket.io/redis-adapter'
-import cookie from 'cookie'
+// import { createAdapter } from '@socket.io/redis-adapter'
+import { createRequire } from 'module';
+const requireModule = createRequire(__filename);
+const cookie = requireModule('cookie');
 import { logger } from '../config/logger'
 import { appConfig } from '../config/env'
 import jwt from 'jsonwebtoken'
@@ -40,6 +42,7 @@ const SOCKET_CONFIG = {
 export class SocketService {
   private io: Server
   private userSocketMap: Map<string, string> = new Map() // userId -> socketId for quick lookup
+  private reconnectingUsers: Set<string> = new Set() // Track users currently reconnecting
 
   constructor(server: HttpServer) {
     // console.log('appConfig.cors.origin', appConfig.cors.origin);
@@ -54,6 +57,11 @@ export class SocketService {
       pingInterval: SOCKET_CONFIG.pingInterval,
       perMessageDeflate: SOCKET_CONFIG.perMessageDeflate,
       maxHttpBufferSize: SOCKET_CONFIG.maxHttpBufferSize,
+      // Enable automatic reconnection handling
+      allowRequest: (req, callback) => {
+        // Add CORS headers for Socket.IO
+        callback(null, true);
+      }
     })
 
     // Set up notification service socket emitter
@@ -64,41 +72,64 @@ export class SocketService {
     this.setupMiddleware()
     this.setupEventHandlers()
     this.setupRedisSubscriptions()
+
+    // Start periodic cleanup to remove stale connections
+    this.startPeriodicCleanup(30000); // Run every 30 seconds
   }
 
   private setupMiddleware() {
     this.io.use(async (socket: AuthenticatedSocket, next) => {
       try {
-        let token = socket.handshake.auth.token
-        
+        // First try to get token from auth object (from frontend)
+        let token = socket.handshake.auth.token;
+
+        // If no token in auth, try cookies
         if (!token && socket.handshake.headers.cookie) {
-          const cookies = cookie.parse(socket.handshake.headers.cookie)
-          token = cookies.token
+          try {
+            const cookies = cookie.parse(socket.handshake.headers.cookie);
+            token = cookies.accessToken || cookies.refreshToken;
+          } catch (cookieError) {
+            logger.error('Error parsing cookies:', cookieError);
+          }
         }
 
         if (!token) {
-          throw new Error('Authentication error')
+          logger.warn('Socket connection rejected: No token provided', {
+            hasAuthToken: !!socket.handshake.auth.token,
+            hasCookies: !!socket.handshake.headers.cookie
+          });
+          return next(new Error('Authentication error: No token provided'));
         }
 
-        const decoded = jwt.verify(token, appConfig.jwt.secret) as { id: string }
-        
-        // Use cached user lookup for performance
+        // Verify token
+        let decoded;
+        try {
+          decoded = jwt.verify(token, appConfig.jwt.secret) as { id: string };
+        } catch (jwtError) {
+          logger.error('JWT verification failed:', jwtError);
+          return next(new Error('Authentication error: Invalid token'));
+        }
+
+        // Look up user
         const user = await cacheService.getOrSet(
           decoded.id,
           async () => User.findById(decoded.id),
           CACHE_CONFIGS.USER
-        )
+        );
 
         if (!user) {
-          throw new Error('User not found')
+          logger.warn('Socket connection rejected: User not found', { userId: decoded.id });
+          return next(new Error('User not found'));
         }
 
-        socket.userId = user.id
-        next()
+        socket.userId = user._id || user.id;
+        logger.info(`Socket authenticated successfully: ${socket.userId}`);
+        next();
       } catch (error) {
-        next(new Error('Authentication error'))
+        logger.error('Socket authentication error:', error);
+        next(new Error('Authentication error'));
       }
-    })
+    });
   }
 
   /**
@@ -136,26 +167,41 @@ export class SocketService {
   private setupEventHandlers() {
     this.io.on('connection', (socket: AuthenticatedSocket) => {
       logger.info(`User connected: ${socket.userId}`)
-      
+
+      // Handle potential reconnection
+      if (socket.userId && this.reconnectingUsers.has(socket.userId)) {
+        this.reconnectingUsers.delete(socket.userId);
+        logger.info(`User reconnected: ${socket.userId}`);
+      }
+
       // Track user connection
       if (socket.userId) {
         // Store userId -> socketId mapping for quick lookups
         this.userSocketMap.set(socket.userId, socket.id)
-        
+
         // Track in metrics
         metricsService.trackUserConnection(socket.userId)
-        
+
         // Track online status in Redis for distributed systems
-        cacheService.sadd('online_users', socket.userId, CACHE_CONFIGS.USER_ONLINE).catch(err => {
+        this.addUserToOnlineSet(socket.userId).catch(err => {
           logger.error('Error tracking online user:', err)
         })
 
         // Send welcome notification for new users
-        socket.emit('connected', { 
+        socket.emit('connected', {
           userId: socket.userId,
           timestamp: Date.now()
         })
+
+        // Send current stats
+        this.sendStatsToUser(socket)
+
+        // Broadcast updated online count to all users
+        this.broadcastOnlineCount()
       }
+
+      // Set up disconnect handler with reconnection tracking
+      socket.on('disconnect', () => this.handleDisconnect(socket))
 
       socket.on('find_match', (data) => this.handleFindMatch(socket, data))
       socket.on('chat_message', (data) => this.handleChatMessage(socket, data))
@@ -167,8 +213,45 @@ export class SocketService {
       socket.on('get_webrtc_config', () => this.handleGetWebRTCConfig(socket))
       socket.on('get_notifications', () => this.handleGetNotifications(socket))
       socket.on('mark_notification_read', (data) => this.handleMarkNotificationRead(socket, data))
-      socket.on('disconnect', () => this.handleDisconnect(socket))
+
+      // Handle reconnection attempts
+      socket.on('error', (error) => {
+        logger.error(`Socket error for user ${socket.userId}:`, error);
+        if (socket.userId) {
+          this.handleDisconnect(socket);
+        }
+      });
     })
+  }
+
+  /**
+   * Add user to online set with proper error handling
+   */
+  private async addUserToOnlineSet(userId: string): Promise<void> {
+    try {
+      // First check if user is already marked online to avoid duplicates
+      const isOnline = await cacheService.sismember('online_users', userId);
+      if (!isOnline) {
+        await cacheService.sadd('online_users', userId, CACHE_CONFIGS.USER_ONLINE);
+      }
+    } catch (error) {
+      logger.error(`Error adding user to online set: ${error}`);
+      // Fallback: try to add anyway
+      await cacheService.sadd('online_users', userId, CACHE_CONFIGS.USER_ONLINE).catch(() => {});
+    }
+  }
+
+  /**
+   * Remove user from online set with proper error handling
+   */
+  private async removeUserFromOnlineSet(userId: string): Promise<void> {
+    try {
+      await cacheService.srem('online_users', userId, CACHE_CONFIGS.USER_ONLINE);
+    } catch (error) {
+      logger.error(`Error removing user from online set:`, error);
+      // Fallback: try to remove anyway
+      await cacheService.srem('online_users', userId, CACHE_CONFIGS.USER_ONLINE).catch(() => {});
+    }
   }
 
   /**
@@ -458,6 +541,9 @@ export class SocketService {
   private handleDisconnect(socket: AuthenticatedSocket) {
     if (!socket.userId) return
 
+    // Check if this is a manual disconnect or unexpected
+    const wasConnected = this.userSocketMap.has(socket.userId);
+
     // Remove from user socket map
     this.userSocketMap.delete(socket.userId)
 
@@ -465,14 +551,15 @@ export class SocketService {
     metricsService.trackUserDisconnection(socket.userId)
 
     // Remove from online users in Redis
-    cacheService.srem('online_users', socket.userId, CACHE_CONFIGS.USER_ONLINE).catch(err => {
-      logger.error('Error removing user from online set:', err)
-    })
+    this.removeUserFromOnlineSet(socket.userId)
 
     // Handle the disconnect the same way as ending a call
     this.handleEndCall(socket)
-    
-    logger.info(`User disconnected: ${socket.userId}`)
+
+    // Broadcast updated online count
+    this.broadcastOnlineCount()
+
+    logger.info(`User disconnected: ${socket.userId}, wasConnected: ${wasConnected}`)
   }
 
   private handleConnectionQuality(socket: AuthenticatedSocket, data: { 
@@ -547,8 +634,70 @@ export class SocketService {
     }
   }
 
+  // Send stats to a specific user
+  private sendStatsToUser(socket: AuthenticatedSocket) {
+    const stats = this.getStats()
+    socket.emit('stats_update', stats)
+  }
+
+  // Broadcast online user count to all connected clients
+  private async broadcastOnlineCount() {
+    try {
+      const onlineCount = await this.getOnlineUsersCount()
+      this.io.emit('online_count', { count: onlineCount })
+    } catch (error) {
+      logger.error('Error broadcasting online count:', error)
+    }
+  }
+
   // Get online users count from Redis (for distributed systems)
   public async getOnlineUsersCount(): Promise<number> {
-    return cacheService.scard('online_users', CACHE_CONFIGS.USER_ONLINE)
+    try {
+      // First sync local connections with Redis
+      const localSockets = Array.from(this.io.sockets.sockets.values());
+      const localUserIds = new Set<string>();
+
+      // Collect all currently connected user IDs from local sockets
+      for (const socket of localSockets) {
+        const authSocket = socket as AuthenticatedSocket;
+        if (authSocket.userId) {
+          localUserIds.add(authSocket.userId);
+        }
+      }
+
+      // Get Redis online users
+      const redisOnlineUsers = await cacheService.smembers('online_users');
+
+      // Find users in Redis but not locally connected (stale entries)
+      const staleUsers = redisOnlineUsers.filter(userId => !localUserIds.has(userId));
+
+      // Remove stale entries
+      for (const userId of staleUsers) {
+        await this.removeUserFromOnlineSet(userId);
+        logger.debug(`Removed stale online user: ${userId}`);
+      }
+
+      // Return accurate count
+      return localUserIds.size;
+    } catch (error) {
+      logger.error('Error getting online users count:', error);
+      // Fallback to local count
+      return this.io.sockets.sockets.size;
+    }
+  }
+
+  // Periodic cleanup of stale connections
+  public startPeriodicCleanup(intervalMs: number = 60000): NodeJS.Timeout {
+    return setInterval(async () => {
+      try {
+        const accurateCount = await this.getOnlineUsersCount();
+        logger.debug(`Online users cleanup: ${accurateCount} users`);
+
+        // Broadcast the corrected count
+        this.io.emit('online_count', { count: accurateCount });
+      } catch (error) {
+        logger.error('Error during periodic cleanup:', error);
+      }
+    }, intervalMs);
   }
 }

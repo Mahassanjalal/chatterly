@@ -28,9 +28,9 @@ export const getApiUrl = (): string => {
 
 // Get stored auth token - No longer needed as we use httpOnly cookies
 // But we might still want to know if we are logged in
-export const getAuthToken = (): string | null => {
-  return null;
-};
+// export const getAuthToken = (): string | null => {
+//   return null;
+// };
 
 // Get stored user data
 export const getUser = (): User | null => {
@@ -45,10 +45,23 @@ export const setAuthData = (user: User): void => {
   localStorage.setItem('chatterly_user', JSON.stringify(user));
 };
 
+// Store token
+export const setAuthToken = (token: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('chatterly_token', token);
+};
+
+// Get stored auth token
+export const getAuthToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('chatterly_token');
+};
+
 // Clear auth data
 export const clearAuthData = (): void => {
   if (typeof window === 'undefined') return;
   localStorage.removeItem('chatterly_user');
+  localStorage.removeItem('chatterly_token');
 };
 
 // Check if user is authenticated
@@ -103,7 +116,13 @@ export const login = async (email: string, password: string): Promise<AuthRespon
     throw new Error(error.error || error.message || 'Login failed');
   }
 
-  setAuthData(result.user);
+  // Store both user data and token
+  if (result.user) {
+    setAuthData(result.user);
+  }
+  if (result.token) {
+    setAuthToken(result.token);
+  }
   return result;
 };
 
@@ -130,7 +149,13 @@ export const register = async (name: string, email: string, password: string, da
     throw new Error(error.error || error.message || 'Registration failed');
   }
 
-  setAuthData(result.user);
+  // Store both user data and token
+  if (result.user) {
+    setAuthData(result.user);
+  }
+  if (result.token) {
+    setAuthToken(result.token);
+  }
   return result;
 };
 
@@ -292,4 +317,15 @@ export const deleteAccount = async (password: string, confirmation: string): Pro
 
   clearAuthData();
   return result;
+};
+
+export const verifyAuthState = (): {hasUser: boolean; hasToken: boolean; user: User | null, token: string | null} => {
+  const user = getUser();
+  const token = getAuthToken();
+  return {
+    hasUser: !!user,
+    hasToken: !!token,
+    user,
+    token
+  };
 };

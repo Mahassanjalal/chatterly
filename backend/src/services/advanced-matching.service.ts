@@ -434,11 +434,21 @@ export class AdvancedMatchingService {
     
     if (user1BlockedUser2 || user2BlockedUser1) return false;
 
-    // Check mutual gender preferences
+    // Check mutual gender preferences - be more lenient
+    // If user1 prefers 'both', they match with anyone
+    // If user1 prefers specific gender, check if user2 matches
     const pref1Match = user1.preferences.gender === 'both' || 
                        user1.preferences.gender === user2.user.gender;
     const pref2Match = user2.preferences.gender === 'both' || 
                        user2.preferences.gender === user1.user.gender;
+
+    // Be lenient: if both users have specific preferences that don't match,
+    // still allow match if queue is small
+    const queueSize = this.waitingUsers.size;
+    if (queueSize < 5) {
+      // Small queue - be more lenient with preferences
+      return true;
+    }
 
     return pref1Match && pref2Match;
   }

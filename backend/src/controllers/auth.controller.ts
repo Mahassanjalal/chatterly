@@ -78,21 +78,18 @@ const sendTokenResponse = async (user: { _id: string; name: string; email: strin
 
   const cookieOptions = {
     httpOnly: true,
-    secure: appConfig.isProduction,
+    secure: true,
     sameSite: 'lax' as const,
   }
 
-  res
-    .status(statusCode)
-    .cookie('accessToken', accessToken, {
+  res.status(statusCode).cookie('accessToken', accessToken, {
       ...cookieOptions,
       expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-    })
-    .cookie('refreshToken', refreshToken, {
+    }).cookie('refreshToken', refreshToken, {
       ...cookieOptions,
       expires: new Date(Date.now() + REFRESH_TOKEN_CONFIG.expiresIn), // 30 days
-    })
-    .json({
+    }).json({
+      token: accessToken, // Include token in response for socket authentication
       user: {
         id: user._id,
         name: user.name,
