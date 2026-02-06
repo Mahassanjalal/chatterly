@@ -1,7 +1,9 @@
 "use client";
 
-import { apiRequest } from "@/utils/auth";
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { Shield, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { apiRequest } from "../utils/auth";
 
 export default function PasswordChangeForm() {
   const [formData, setFormData] = useState({
@@ -63,6 +65,7 @@ export default function PasswordChangeForm() {
         newPassword: '',
         confirmPassword: '',
       });
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
@@ -71,111 +74,150 @@ export default function PasswordChangeForm() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h3 className="text-2xl font-bold text-gray-800 mb-2">Change Password</h3>
-        <p className="text-gray-600">Update your account password for security</p>
+    <div className="p-6 sm:p-8">
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-slate-900" />
+          </div>
+          <h3 className="text-2xl font-bold text-white">Security</h3>
+        </div>
+        <p className="text-slate-400">Update your account password for security</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Current Password */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Current Password
           </label>
           <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500" />
             <input
               type={showPasswords ? "text" : "password"}
               name="currentPassword"
               value={formData.currentPassword}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all pr-12"
+              className="w-full pl-10 pr-12 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPasswords(!showPasswords)}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
         {/* New Password */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             New Password
           </label>
-          <input
-            type={showPasswords ? "text" : "password"}
-            name="newPassword"
-            value={formData.newPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-            required
-            minLength={8}
-          />
-          <p className="text-xs text-gray-500 mt-1">
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500" />
+            <input
+              type={showPasswords ? "text" : "password"}
+              name="newPassword"
+              value={formData.newPassword}
+              onChange={handleChange}
+              className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              required
+              minLength={8}
+            />
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
             Must be at least 8 characters long
           </p>
         </div>
 
         {/* Confirm New Password */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-slate-300 mb-2">
             Confirm New Password
           </label>
-          <input
-            type={showPasswords ? "text" : "password"}
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-            required
-          />
-        </div>
-
-        {/* Show Passwords Toggle */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="showPasswords"
-            checked={showPasswords}
-            onChange={(e) => setShowPasswords(e.target.checked)}
-            className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-          />
-          <label htmlFor="showPasswords" className="ml-2 block text-sm text-gray-700">
-            Show passwords
-          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500" />
+            <input
+              type={showPasswords ? "text" : "password"}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              required
+            />
+          </div>
         </div>
 
         {/* Security Tips */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-800 mb-2">🔒 Password Security Tips</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
-            <li>• Use a mix of uppercase, lowercase, numbers, and symbols</li>
-            <li>• Avoid using personal information or common words</li>
-            <li>• Don&apos;t reuse passwords from other accounts</li>
-            <li>• Consider using a password manager</li>
+        <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Shield className="w-5 h-5 text-cyan-400" />
+            <h4 className="font-semibold text-white">Password Security Tips</h4>
+          </div>
+          <ul className="text-sm text-slate-400 space-y-2">
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full mt-2 flex-shrink-0"></div>
+              Use a mix of uppercase, lowercase, numbers, and symbols
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full mt-2 flex-shrink-0"></div>
+              Avoid using personal information or common words
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full mt-2 flex-shrink-0"></div>
+              Don&apos;t reuse passwords from other accounts
+            </li>
+            <li className="flex items-start gap-2">
+              <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full mt-2 flex-shrink-0"></div>
+              Consider using a password manager
+            </li>
           </ul>
         </div>
 
         {/* Error/Success Messages */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2"
+          >
+            <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+            <p className="text-rose-400 text-sm">{error}</p>
+          </motion.div>
         )}
 
         {success && (
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-green-600 text-sm">{success}</p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2"
+          >
+            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-emerald-400 text-sm">{success}</p>
+          </motion.div>
         )}
 
         {/* Submit Button */}
-        <div className="flex justify-end">
-          <button
+        <div className="flex justify-end pt-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {loading ? 'Changing Password...' : 'Change Password'}
-          </button>
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Changing...
+              </>
+            ) : (
+              'Change Password'
+            )}
+          </motion.button>
         </div>
       </form>
     </div>

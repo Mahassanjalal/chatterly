@@ -2,16 +2,40 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getUser, User } from "../utils/auth";
+import { motion } from "framer-motion";
+import { 
+  User, 
+  Users, 
+  Star, 
+  Shield, 
+  Video,
+  ChevronRight,
+  Crown
+} from "lucide-react";
+import { getUser, User as UserType } from "../utils/auth";
 
 interface PreferenceSelectorProps {
   onStart: (preferences: { gender: 'male' | 'female' | 'both' }) => void;
   loading?: boolean;
 }
 
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5 }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
 export default function PreferenceSelector({ onStart, loading }: PreferenceSelectorProps) {
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | 'both'>('both');
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserType | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,8 +49,9 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
       { 
         value: 'both' as const, 
         label: 'Everyone', 
-        icon: '👥',
-        description: 'Chat with anyone'
+        icon: Users,
+        description: 'Chat with anyone',
+        color: 'from-cyan-400 to-blue-500'
       }
     ];
 
@@ -38,8 +63,9 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
         const sameGenderOption = {
           value: user.gender as 'male' | 'female',
           label: user.gender === 'male' ? 'Male' : 'Female',
-          icon: user.gender === 'male' ? '👨' : '👩',
-          description: `${user.gender === 'male' ? 'Males' : 'Females'} only`
+          icon: User,
+          description: `${user.gender === 'male' ? 'Males' : 'Females'} only`,
+          color: user.gender === 'male' ? 'from-blue-400 to-indigo-500' : 'from-pink-400 to-rose-500'
         };
         return [baseOptions[0], sameGenderOption];
       }
@@ -51,14 +77,16 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
         { 
           value: 'male' as const, 
           label: 'Male', 
-          icon: '👨',
-          description: 'Males only'
+          icon: User,
+          description: 'Males only',
+          color: 'from-blue-400 to-indigo-500'
         },
         { 
           value: 'female' as const, 
           label: 'Female', 
-          icon: '👩',
-          description: 'Females only'
+          icon: User,
+          description: 'Females only',
+          color: 'from-pink-400 to-rose-500'
         },
       ];
     }
@@ -71,145 +99,202 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
   };
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl p-8">
+    <motion.div 
+      initial="initial"
+      animate="animate"
+      variants={staggerContainer}
+      className="w-full max-w-lg mx-auto glass rounded-2xl shadow-2xl p-8"
+    >
       {/* Profile Button */}
-      <div className="flex justify-end mb-4">
+      <motion.div variants={fadeInUp} className="flex justify-end mb-6">
         <button
           onClick={() => router.push('/profile')}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 rounded-xl transition-all border border-slate-700/50"
         >
-          <span>👤</span>
+          <User className="w-4 h-4" />
           <span>Profile</span>
         </button>
-      </div>
+      </motion.div>
 
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">
-            Find someone to chat with
-          </h2>
-          {user && (
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              user.type === 'pro' 
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-                : 'bg-gray-200 text-gray-600'
-            }`}>
-              {user.type === 'pro' ? '⭐ PRO' : '🆓 FREE'}
-            </span>
-          )}
+      {/* Header */}
+      <motion.div variants={fadeInUp} className="text-center mb-8">
+        <div className="inline-flex items-center gap-2 mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/25">
+            <Video className="w-8 h-8 text-slate-900" />
+          </div>
         </div>
-        <p className="text-gray-600">
-          Choose your preference and start connecting
+        <h2 className="text-3xl font-bold text-white mb-2">
+          Ready to Connect?
+        </h2>
+        <p className="text-slate-400">
+          Choose your preference and start meeting amazing people
         </p>
-      </div>
+        {user && (
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/50 border border-slate-700">
+            {user.type === 'pro' ? (
+              <>
+                <Crown className="w-4 h-4 text-amber-400" />
+                <span className="text-amber-400 font-medium">PRO Member</span>
+              </>
+            ) : (
+              <>
+                <Star className="w-4 h-4 text-slate-400" />
+                <span className="text-slate-400">Free Account</span>
+              </>
+            )}
+          </div>
+        )}
+      </motion.div>
 
       {/* Gender Preference Selection */}
-      <div className="mb-8">
-        <label className="block text-sm font-medium text-gray-700 mb-4">
+      <motion.div variants={fadeInUp} className="mb-8">
+        <label className="block text-sm font-medium text-slate-300 mb-4">
           I want to chat with:
         </label>
         <div className="grid grid-cols-1 gap-3">
-          {genderOptions.map((option) => (
-            <button
+          {genderOptions.map((option, index) => (
+            <motion.button
               key={option.value}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedGender(option.value)}
               className={`flex items-center p-4 rounded-xl border-2 transition-all duration-200 ${
                 selectedGender === option.value
-                  ? 'border-blue-500 bg-blue-50 shadow-lg'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                  ? 'border-cyan-500 bg-cyan-500/10'
+                  : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
               }`}
             >
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mr-4">
-                <span className="text-2xl">{option.icon}</span>
+              <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r ${option.color} mr-4`}>
+                <option.icon className="w-6 h-6 text-slate-900" />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-semibold text-gray-800">{option.label}</div>
-                <div className="text-sm text-gray-500">{option.description}</div>
+                <div className="font-semibold text-white">{option.label}</div>
+                <div className="text-sm text-slate-400">{option.description}</div>
               </div>
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                 selectedGender === option.value
-                  ? 'border-blue-500 bg-blue-500'
-                  : 'border-gray-300'
+                  ? 'border-cyan-500 bg-cyan-500'
+                  : 'border-slate-600'
               }`}>
                 {selectedGender === option.value && (
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 )}
               </div>
-            </button>
+            </motion.button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* User Type Info */}
       {user && user.type === 'free' && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+        <motion.div 
+          variants={fadeInUp}
+          className="mb-6 p-5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-xl border border-amber-500/30"
+        >
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-lg">⭐</span>
-            <span className="font-medium text-blue-800">Upgrade to PRO</span>
+            <Crown className="w-5 h-5 text-amber-400" />
+            <span className="font-semibold text-amber-400">Upgrade to PRO</span>
           </div>
-          <ul className="text-sm text-blue-700 space-y-1 mb-3">
-            <li>• Choose any gender preference</li>
-            <li>• 80% opposite gender matches</li>
-            <li>• Priority matching</li>
-            <li>• Advanced filters (coming soon)</li>
+          <ul className="text-sm text-slate-300 space-y-2 mb-4">
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+              Choose any gender preference
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+              80% opposite gender matches
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+              Priority matching
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+              Advanced filters (coming soon)
+            </li>
           </ul>
-          <button className="w-full py-2 px-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all">
+          <button 
+            onClick={() => router.push('/profile')}
+            className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/25 transition-all flex items-center justify-center gap-2"
+          >
+            <Crown className="w-4 h-4" />
             Upgrade to PRO
+            <ChevronRight className="w-4 h-4" />
           </button>
-        </div>
+        </motion.div>
       )}
 
-      {/* Additional Options */}
-      <div className="mb-8 p-4 bg-gray-50 rounded-xl">
+      {/* Safety Reminder */}
+      <motion.div 
+        variants={fadeInUp}
+        className="mb-8 p-4 bg-slate-800/30 rounded-xl border border-slate-700/50"
+      >
         <div className="flex items-center gap-3 mb-3">
-          <span className="text-lg">⚠️</span>
-          <span className="font-medium text-gray-800">Safety Reminder</span>
+          <Shield className="w-5 h-5 text-emerald-400" />
+          <span className="font-semibold text-white">Safety First</span>
         </div>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Keep personal information private</li>
-          <li>• Report inappropriate behavior</li>
-          <li>• You can end the chat anytime</li>
+        <ul className="text-sm text-slate-400 space-y-1.5">
+          <li className="flex items-center gap-2">
+            <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
+            Keep personal information private
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
+            Report inappropriate behavior
+          </li>
+          <li className="flex items-center gap-2">
+            <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
+            You can end the chat anytime
+          </li>
           {user && user.type === 'free' && (
-            <li>• Free users: 80% same gender matches</li>
+            <li className="flex items-center gap-2 text-amber-400/80">
+              <div className="w-1 h-1 bg-amber-400 rounded-full"></div>
+              Free users: 80% same gender matches
+            </li>
           )}
         </ul>
-      </div>
+      </motion.div>
 
       {/* Start Button */}
-      <button
+      <motion.button
+        variants={fadeInUp}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={handleStart}
         disabled={loading}
-        className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 ${
+        className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-3 ${
           loading
-            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-lg shadow-cyan-500/25'
         }`}
       >
         {loading ? (
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+          <>
+            <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
             Finding someone...
-          </div>
+          </>
         ) : (
-          <div className="flex items-center justify-center gap-2">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
+          <>
+            <Video className="w-5 h-5" />
             Start Video Chat
-          </div>
+            <ChevronRight className="w-5 h-5" />
+          </>
         )}
-      </button>
+      </motion.button>
 
       {/* Skip Option */}
-      <div className="mt-4 text-center">
+      <motion.div variants={fadeInUp} className="mt-4 text-center">
         <button
           onClick={() => onStart({ gender: 'both' })}
           disabled={loading}
-          className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="text-sm text-slate-500 hover:text-cyan-400 transition-colors"
         >
           Or start with default settings
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

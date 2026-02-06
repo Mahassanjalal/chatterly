@@ -12,32 +12,37 @@ interface ConnectionQualityIndicatorProps {
 
 const qualityConfig = {
   excellent: {
-    color: 'bg-green-500',
-    textColor: 'text-green-500',
+    color: 'bg-emerald-500',
+    textColor: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/20',
     label: 'Excellent',
     bars: 4,
   },
   good: {
-    color: 'bg-green-400',
-    textColor: 'text-green-400',
+    color: 'bg-cyan-400',
+    textColor: 'text-cyan-400',
+    bgColor: 'bg-cyan-500/20',
     label: 'Good',
     bars: 3,
   },
   fair: {
-    color: 'bg-yellow-400',
-    textColor: 'text-yellow-400',
+    color: 'bg-amber-400',
+    textColor: 'text-amber-400',
+    bgColor: 'bg-amber-500/20',
     label: 'Fair',
     bars: 2,
   },
   poor: {
-    color: 'bg-red-400',
-    textColor: 'text-red-400',
+    color: 'bg-rose-400',
+    textColor: 'text-rose-400',
+    bgColor: 'bg-rose-500/20',
     label: 'Poor',
     bars: 1,
   },
   disconnected: {
-    color: 'bg-gray-400',
-    textColor: 'text-gray-400',
+    color: 'bg-slate-500',
+    textColor: 'text-slate-400',
+    bgColor: 'bg-slate-500/20',
     label: 'Disconnected',
     bars: 0,
   },
@@ -59,7 +64,7 @@ export default function ConnectionQualityIndicator({
           <div
             key={bar}
             className={`w-1 rounded-sm transition-all ${
-              bar <= config.bars ? config.color : 'bg-gray-300'
+              bar <= config.bars ? config.color : 'bg-slate-600'
             }`}
             style={{ height: `${bar * 25}%` }}
           />
@@ -70,10 +75,10 @@ export default function ConnectionQualityIndicator({
         <div className="text-xs">
           <span className={config.textColor}>{config.label}</span>
           {currentQuality && (
-            <span className="text-gray-400 ml-1">({currentQuality.label})</span>
+            <span className="text-slate-500 ml-1">({currentQuality.label})</span>
           )}
           {latency !== undefined && (
-            <span className="text-gray-400 ml-1">
+            <span className="text-slate-500 ml-1">
               {latency.toFixed(0)}ms
             </span>
           )}
