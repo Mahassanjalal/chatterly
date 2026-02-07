@@ -73,6 +73,7 @@ export default function Header() {
 
   const navLinks = [
     { href: '/chat', label: 'Chat', icon: MessageCircle },
+    { href: '/users', label: 'Browse', icon: Users },
     { href: '/profile', label: 'Profile', icon: User },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];

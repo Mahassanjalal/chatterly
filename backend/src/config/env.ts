@@ -12,7 +12,22 @@ const envSchema = z.object({
   REDIS_URL: z.string().url(),
   JWT_SECRET: z.string(),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  CORS_ORIGIN: z.string().url(),
+  CORS_ORIGIN: z
+    .string()
+    .transform((value) =>
+      value
+        .split(';')
+        .map(origin => origin.trim())
+        .filter(Boolean)
+    )
+    .refine((origins) => origins.every(origin => {
+        try {
+          new URL(origin)
+          return true
+        } catch {
+          return false
+        }
+      })),
   RATE_LIMIT_WINDOW_MS: z.string().default('900000'), // 15 minutes
   RATE_LIMIT_MAX: z.string().default('100'),
 })

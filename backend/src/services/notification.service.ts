@@ -29,6 +29,9 @@ export type NotificationType =
   | 'system_maintenance'
   | 'system_update'
   | 'welcome'
+  | 'connection_rejected'
+  | 'connection_accepted'
+  | 'connection_request'
   | 'connection_quality';
 
 // Notification priority levels
@@ -131,6 +134,18 @@ const NOTIFICATION_TEMPLATES: Record<NotificationType, { title: string; message:
   connection_quality: {
     title: 'Connection Quality',
     message: 'Your connection quality has changed.',
+  },
+  connection_rejected: {
+    title: 'Connection Rejected',
+    message: 'Your connection attempt was rejected. Please try again.',
+  },
+  connection_accepted: {
+    title: 'Connection Accepted',
+    message: 'Your connection attempt was accepted. Enjoy your chat!',
+  },
+  connection_request: {
+    title: 'Connection Request',
+    message: 'You have a new connection request.',
   },
 };
 

@@ -18,6 +18,7 @@ import { notificationService } from './notification.service'
 import { cacheService, CACHE_CONFIGS } from './cache.service'
 import { getWebRTCConfig, evaluateConnectionQuality } from '../config/webrtc'
 import { redis } from '../config/redis'
+import { directConnectionService } from './direct-connection.service'
 
 interface AuthenticatedSocket extends Socket {
   userId?: string
@@ -46,9 +47,20 @@ export class SocketService {
 
   constructor(server: HttpServer) {
     // console.log('appConfig.cors.origin', appConfig.cors.origin);
+    const socketCorsOrigins = Array.isArray(appConfig.cors.origin)
+  ? appConfig.cors.origin
+  : [appConfig.cors.origin]
     this.io = new Server(server, {
       cors: {
-        origin: appConfig.cors.origin,
+        // origin: appConfig.cors.origin,
+        origin: (origin, callback) => {
+          // Allow server-to-server / Postman / health checks
+          if (!origin) return callback(null, true)
+          if (socketCorsOrigins.includes(origin)) {
+            return callback(null, true)
+          }
+          callback(new Error(`Socket.IO CORS blocked: ${origin}`))
+        },
         credentials: true,
         methods: ['GET', 'POST'],
       },
@@ -107,6 +119,10 @@ export class SocketService {
           decoded = jwt.verify(token, appConfig.jwt.secret) as { id: string };
         } catch (jwtError) {
           logger.error('JWT verification failed:', jwtError);
+          if (jwtError instanceof jwt.TokenExpiredError) {
+            logger.warn('JWT token expired');
+            return next(new Error('TokenExpired'));
+          }
           return next(new Error('Authentication error: Invalid token'));
         }
 
@@ -208,11 +224,21 @@ export class SocketService {
       socket.on('typing', () => this.handleTyping(socket))
       socket.on('webrtc_signal', (data) => this.handleWebRTCSignal(socket, data))
       socket.on('end_call', () => this.handleEndCall(socket))
+      socket.on('skip_match', (data) => this.handleSkipMatch(socket, data))
       socket.on('report_user', (data) => this.handleReportUser(socket, data))
       socket.on('connection_quality', (data) => this.handleConnectionQuality(socket, data))
       socket.on('get_webrtc_config', () => this.handleGetWebRTCConfig(socket))
       socket.on('get_notifications', () => this.handleGetNotifications(socket))
       socket.on('mark_notification_read', (data) => this.handleMarkNotificationRead(socket, data))
+
+      // Direct connection events
+      socket.on('register_online', (data) => this.handleRegisterOnline(socket, data))
+      socket.on('send_connection_request', (data) => this.handleSendConnectionRequest(socket, data))
+      socket.on('accept_connection_request', (data) => this.handleAcceptConnectionRequest(socket, data))
+      socket.on('reject_connection_request', (data) => this.handleRejectConnectionRequest(socket, data))
+      socket.on('cancel_connection_request', (data) => this.handleCancelConnectionRequest(socket, data))
+      socket.on('start_direct_call', (data) => this.handleStartDirectCall(socket, data))
+      socket.on('heartbeat_online', () => this.handleHeartbeatOnline(socket))
 
       // Handle reconnection attempts
       socket.on('error', (error) => {
@@ -337,6 +363,7 @@ export class SocketService {
       metricsService.updateQueueSize(advancedMatchingService.getUsersInQueue())
 
       if (match) {
+        console.log('Match found:', match.user1.userId, " and ", match.user2.userId);
         // Match found! Track metrics
         const matchLatency = Date.now() - startTime
         metricsService.trackMatchCreated(matchLatency)
@@ -394,6 +421,7 @@ export class SocketService {
         logger.info(`Match created: ${match.matchId} (score: ${match.matchScore.toFixed(2)}, latency: ${matchLatency}ms)`)
       } else {
         // No match found, user added to waiting queue
+        console.log('No match found, user added to queue:', socket.userId);
         socket.emit('searching', {
           message: 'Looking for someone to chat with...',
           queueStats: advancedMatchingService.getQueueStats(),
@@ -538,6 +566,43 @@ export class SocketService {
     socket.emit('call_ended', { reason: 'you_left' })
   }
 
+  private handleSkipMatch(socket: AuthenticatedSocket, data: { matchId: string }) {
+    if (!socket.userId || !data.matchId) return
+
+    logger.info(`User ${socket.userId} is skipping match ${data.matchId}`)
+
+    // Get the current match
+    const match = advancedMatchingService.getMatch(data.matchId)
+    if (!match) {
+      socket.emit('skip_error', { message: 'Match not found' })
+      return
+    }
+
+    // Determine the other user
+    const otherUserId = match.user1.userId === socket.userId ? match.user2.userId : match.user1.userId
+
+    // Track match ended due to skip
+    metricsService.trackMatchEnded()
+
+    // Remove the match
+    advancedMatchingService.removeUserFromMatch(socket.userId)
+
+    // Notify the other user that they were skipped
+    this.notifyUserByUserId(otherUserId, 'partner_skipped', { 
+      message: 'Your partner has moved on to someone else' 
+    })
+
+    // Clear match ID from both sockets
+    socket.matchId = undefined
+    const otherSocket = this.getSocketByUserId(otherUserId)
+    if (otherSocket) {
+      otherSocket.matchId = undefined
+    }
+
+    // Confirm skip to the user
+    socket.emit('skip_confirmed', { message: 'Match skipped successfully' })
+  }
+
   private handleDisconnect(socket: AuthenticatedSocket) {
     if (!socket.userId) return
 
@@ -553,11 +618,23 @@ export class SocketService {
     // Remove from online users in Redis
     this.removeUserFromOnlineSet(socket.userId)
 
+    // Remove from direct connections online users
+    directConnectionService.removeUserOnline(socket.userId).catch(err => {
+      logger.error('Error removing user from direct connections:', err)
+    })
+
     // Handle the disconnect the same way as ending a call
     this.handleEndCall(socket)
 
     // Broadcast updated online count
     this.broadcastOnlineCount()
+
+    // Broadcast direct connections online count update
+    directConnectionService.getOnlineUsersCount().then(count => {
+      this.io.emit('direct_online_count', { count })
+    }).catch(err => {
+      logger.error('Error broadcasting direct online count:', err)
+    })
 
     logger.info(`User disconnected: ${socket.userId}, wasConnected: ${wasConnected}`)
   }
@@ -699,5 +776,304 @@ export class SocketService {
         logger.error('Error during periodic cleanup:', error);
       }
     }, intervalMs);
+  }
+
+  // ==================== DIRECT CONNECTION HANDLERS ====================
+
+  /**
+   * Register user as online for direct connections
+   */
+  private async handleRegisterOnline(socket: AuthenticatedSocket, data: {
+    name: string
+    gender?: 'male' | 'female' | 'other'
+    avatar?: string
+    interests: string[]
+    languages: string[]
+    type: 'free' | 'pro'
+  }) {
+    if (!socket.userId) return
+
+    try {
+      // Check subscription for direct connection feature
+      const actionCheck = await subscriptionService.canPerformAction(socket.userId, 'direct_connection')
+      if (!actionCheck.allowed) {
+        socket.emit('direct_connection_error', { message: actionCheck.reason })
+        return
+      }
+
+      await directConnectionService.registerUserOnline(socket.userId, {
+        name: data.name,
+        gender: data.gender,
+        avatar: data.avatar,
+        interests: data.interests,
+        languages: data.languages,
+        type: data.type
+      })
+
+      socket.emit('registered_online', { success: true })
+      logger.info(`User ${socket.userId} registered for direct connections`)
+
+      // Broadcast updated online count for direct connections
+      const directOnlineCount = await directConnectionService.getOnlineUsersCount()
+      this.io.emit('direct_online_count', { count: directOnlineCount })
+    } catch (error) {
+      logger.error(`Error registering user ${socket.userId} as online:`, error)
+      socket.emit('direct_connection_error', { message: 'Failed to register as online' })
+    }
+  }
+
+  /**
+   * Handle heartbeat for online users
+   */
+  private async handleHeartbeatOnline(socket: AuthenticatedSocket) {
+    if (!socket.userId) return
+
+    try {
+      await directConnectionService.updateUserHeartbeat(socket.userId)
+    } catch (error) {
+      logger.error(`Error updating heartbeat for user ${socket.userId}:`, error)
+    }
+  }
+
+  /**
+   * Send connection request to another user
+   */
+  private async handleSendConnectionRequest(socket: AuthenticatedSocket, data: {
+    toUserId: string
+    message?: string
+  }) {
+    if (!socket.userId) return
+
+    try {
+      // Check subscription limits
+      const actionCheck = await subscriptionService.canPerformAction(socket.userId, 'direct_connection')
+      if (!actionCheck.allowed) {
+        socket.emit('connection_request_error', { message: actionCheck.reason })
+        return
+      }
+
+      // Check if target user is online
+      const targetUser = await directConnectionService.getOnlineUser(data.toUserId)
+      if (!targetUser) {
+        socket.emit('connection_request_error', { message: 'User is not online' })
+        return
+      }
+
+      // Check if already connected
+      const hasConnection = await directConnectionService.hasActiveConnection(socket.userId, data.toUserId)
+      if (hasConnection) {
+        socket.emit('connection_request_error', { message: 'Already connected with this user' })
+        return
+      }
+
+      // Create connection request
+      const request = await directConnectionService.createConnectionRequest(
+        socket.userId,
+        data.toUserId,
+        data.message
+      )
+
+      // Get sender info for notification
+      const senderInfo = await directConnectionService.getOnlineUser(socket.userId)
+
+      // Notify the target user
+      this.notifyUserByUserId(data.toUserId, 'connection_request_received', {
+        requestId: request.id,
+        fromUser: senderInfo,
+        message: data.message,
+        createdAt: request.createdAt
+      })
+
+      // Confirm to sender
+      socket.emit('connection_request_sent', {
+        requestId: request.id,
+        toUserId: data.toUserId,
+        status: 'pending'
+      })
+
+      // Send notification
+      await notificationService.notify(data.toUserId, 'connection_request', {
+        requestId: request.id,
+        fromUserId: socket.userId,
+        fromUserName: senderInfo?.name || 'Someone'
+      })
+
+      logger.info(`Connection request ${request.id} sent from ${socket.userId} to ${data.toUserId}`)
+    } catch (error) {
+      logger.error(`Error sending connection request from ${socket.userId}:`, error)
+      socket.emit('connection_request_error', {
+        message: error instanceof Error ? error.message : 'Failed to send connection request'
+      })
+    }
+  }
+
+  /**
+   * Accept a connection request
+   */
+  private async handleAcceptConnectionRequest(socket: AuthenticatedSocket, data: {
+    requestId: string
+  }) {
+    if (!socket.userId) return
+
+    try {
+      const connection = await directConnectionService.acceptConnectionRequest(
+        data.requestId,
+        socket.userId
+      )
+
+      // Get request details to notify the sender
+      const request = await directConnectionService.getConnectionRequest(data.requestId)
+      if (!request) {
+        throw new Error('Request not found after acceptance')
+      }
+
+      // Get WebRTC config for both users
+      const webrtcConfig1 = getWebRTCConfig(request.fromUserId)
+      const webrtcConfig2 = getWebRTCConfig(request.toUserId)
+
+      // Get user info for both sides
+      const fromUserInfo = await directConnectionService.getOnlineUser(request.fromUserId)
+      const toUserInfo = await directConnectionService.getOnlineUser(request.toUserId)
+
+      // Notify the request sender that their request was accepted
+      this.notifyUserByUserId(request.fromUserId, 'connection_request_accepted', {
+        connectionId: connection.connectionId,
+        requestId: data.requestId,
+        partner: toUserInfo,
+        isInitiator: true,
+        webrtcConfig: webrtcConfig1
+      })
+
+      // Confirm to the accepter
+      socket.emit('connection_accepted', {
+        connectionId: connection.connectionId,
+        requestId: data.requestId,
+        partner: fromUserInfo,
+        isInitiator: false,
+        webrtcConfig: webrtcConfig2
+      })
+
+      // Send notifications to both users
+      await Promise.all([
+        notificationService.notify(request.fromUserId, 'connection_accepted', {
+          connectionId: connection.connectionId,
+          partnerId: request.toUserId,
+          partnerName: toUserInfo?.name || 'Someone'
+        }),
+        notificationService.notify(request.toUserId, 'connection_accepted', {
+          connectionId: connection.connectionId,
+          partnerId: request.fromUserId,
+          partnerName: fromUserInfo?.name || 'Someone'
+        })
+      ])
+
+      logger.info(`Connection request ${data.requestId} accepted, connection ${connection.connectionId} created`)
+    } catch (error) {
+      logger.error(`Error accepting connection request ${data.requestId}:`, error)
+      socket.emit('connection_accept_error', {
+        message: error instanceof Error ? error.message : 'Failed to accept connection request'
+      })
+    }
+  }
+
+  /**
+   * Reject a connection request
+   */
+  private async handleRejectConnectionRequest(socket: AuthenticatedSocket, data: {
+    requestId: string
+  }) {
+    if (!socket.userId) return
+
+    try {
+      await directConnectionService.rejectConnectionRequest(data.requestId, socket.userId)
+
+      // Get request details to notify the sender
+      const request = await directConnectionService.getConnectionRequest(data.requestId)
+      if (request) {
+        this.notifyUserByUserId(request.fromUserId, 'connection_request_rejected', {
+          requestId: data.requestId,
+          byUserId: socket.userId
+        })
+
+        // Send notification
+        await notificationService.notify(request.fromUserId, 'connection_rejected', {
+          requestId: data.requestId
+        })
+      }
+
+      socket.emit('connection_rejected', { requestId: data.requestId })
+      logger.info(`Connection request ${data.requestId} rejected by user ${socket.userId}`)
+    } catch (error) {
+      logger.error(`Error rejecting connection request ${data.requestId}:`, error)
+      socket.emit('connection_reject_error', {
+        message: error instanceof Error ? error.message : 'Failed to reject connection request'
+      })
+    }
+  }
+
+  /**
+   * Cancel a sent connection request
+   */
+  private async handleCancelConnectionRequest(socket: AuthenticatedSocket, data: {
+    requestId: string
+  }) {
+    if (!socket.userId) return
+
+    try {
+      await directConnectionService.cancelConnectionRequest(data.requestId, socket.userId)
+
+      // Get request details to notify the target
+      const request = await directConnectionService.getConnectionRequest(data.requestId)
+      if (request) {
+        this.notifyUserByUserId(request.toUserId, 'connection_request_cancelled', {
+          requestId: data.requestId,
+          byUserId: socket.userId
+        })
+      }
+
+      socket.emit('connection_cancelled', { requestId: data.requestId })
+      logger.info(`Connection request ${data.requestId} cancelled by user ${socket.userId}`)
+    } catch (error) {
+      logger.error(`Error cancelling connection request ${data.requestId}:`, error)
+      socket.emit('connection_cancel_error', {
+        message: error instanceof Error ? error.message : 'Failed to cancel connection request'
+      })
+    }
+  }
+
+  /**
+   * Start direct video call between connected users
+   */
+  private async handleStartDirectCall(socket: AuthenticatedSocket, data: {
+    connectionId: string
+  }) {
+    if (!socket.userId) return
+
+    try {
+      // Activate the connection
+      const connection = await directConnectionService.activateConnection(data.connectionId)
+
+      if (!connection) {
+        socket.emit('direct_call_error', { message: 'Connection not found' })
+        return
+      }
+
+      // Determine the other user
+      const otherUserId = connection.user1Id === socket.userId ? connection.user2Id : connection.user1Id
+
+      // Notify the other user that direct call is starting
+      this.notifyUserByUserId(otherUserId, 'direct_call_starting', {
+        connectionId: data.connectionId,
+        byUserId: socket.userId
+      })
+
+      socket.emit('direct_call_started', { connectionId: data.connectionId })
+      logger.info(`Direct call started on connection ${data.connectionId}`)
+    } catch (error) {
+      logger.error(`Error starting direct call for connection ${data.connectionId}:`, error)
+      socket.emit('direct_call_error', {
+        message: error instanceof Error ? error.message : 'Failed to start direct call'
+      })
+    }
   }
 }

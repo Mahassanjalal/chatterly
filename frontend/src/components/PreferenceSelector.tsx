@@ -17,12 +17,13 @@ import {
   Lock,
   CheckCircle,
   TrendingUp,
-  Clock
+  Clock,
+  RefreshCw
 } from "lucide-react";
 import { getUser, User as UserType } from "../utils/auth";
 
 interface PreferenceSelectorProps {
-  onStart: (preferences: { gender: 'male' | 'female' | 'both' }) => void;
+  onStart: (preferences: { gender: 'male' | 'female' | 'both' }, continuousMode: boolean) => void;
   loading?: boolean;
 }
 
@@ -42,6 +43,7 @@ const staggerContainer = {
 
 export default function PreferenceSelector({ onStart, loading }: PreferenceSelectorProps) {
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | 'both'>('both');
+  const [continuousMode, setContinuousMode] = useState(true);
   const [user, setUser] = useState<UserType | null>(null);
   const router = useRouter();
 
@@ -65,18 +67,19 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
     if (!user) return baseOptions;
 
     if (user.type === 'free') {
-      if (user.gender) {
-        const sameGenderOption = {
-          value: user.gender as 'male' | 'female',
-          label: user.gender === 'male' ? 'Male Only' : 'Female Only',
-          icon: User,
-          description: `${user.gender === 'male' ? 'Males' : 'Females'} only`,
-          color: user.gender === 'male' ? 'from-blue-400 to-indigo-500' : 'from-pink-400 to-rose-500',
-          badge: null
-        };
-        return [baseOptions[0], sameGenderOption];
-      }
       return baseOptions;
+      // if (user.gender) {
+      //   const sameGenderOption = {
+      //     value: user.gender as 'male' | 'female',
+      //     label: user.gender === 'male' ? 'Male Only' : 'Female Only',
+      //     icon: User,
+      //     description: `${user.gender === 'male' ? 'Males' : 'Females'} only`,
+      //     color: user.gender === 'male' ? 'from-blue-400 to-indigo-500' : 'from-pink-400 to-rose-500',
+      //     badge: null
+      //   };
+      //   return [baseOptions[0], sameGenderOption];
+      // }
+      // return baseOptions;
     } else {
       return [
         ...baseOptions,
@@ -103,7 +106,7 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
   const genderOptions = getGenderOptions();
 
   const handleStart = () => {
-    onStart({ gender: selectedGender });
+    onStart({ gender: selectedGender }, continuousMode);
   };
 
   return (
@@ -156,7 +159,7 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
         {/* Content */}
         <div className="p-8">
           {/* Gender Selection */}
-          <motion.div variants={fadeInUp} className="mb-8">
+          <motion.div variants={fadeInUp} className="mb-6">
             <label className="block text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
               <User className="w-4 h-4 text-cyan-400" />
               I want to chat with:
@@ -185,8 +188,8 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
                       <span className="font-semibold text-white">{option.label}</span>
                       {option.badge && (
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          option.badge === 'PRO' 
-                            ? 'bg-amber-500/20 text-amber-400' 
+                          option.badge === 'PRO'
+                            ? 'bg-amber-500/20 text-amber-400'
                             : 'bg-cyan-500/20 text-cyan-400'
                         }`}>
                           {option.badge}
@@ -207,6 +210,38 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
                 </motion.button>
               ))}
             </div>
+          </motion.div>
+
+          {/* Continuous Mode Toggle */}
+          <motion.div variants={fadeInUp} className="mb-8">
+            <button
+              onClick={() => setContinuousMode(!continuousMode)}
+              className={`w-full flex items-center p-4 rounded-xl border-2 transition-all duration-200 ${
+                continuousMode
+                  ? 'border-cyan-500 bg-cyan-500/10'
+                  : 'border-slate-700 bg-slate-800/30 hover:border-slate-600'
+              }`}
+            >
+              <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r from-purple-400 to-pink-500 mr-4 shadow-lg`}>
+                <RefreshCw className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white">Continuous Mode</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/20 text-cyan-400">
+                    Recommended
+                  </span>
+                </div>
+                <div className="text-sm text-slate-400">Automatically connect to new people when chat ends</div>
+              </div>
+              <div className={`w-12 h-6 rounded-full transition-all duration-200 relative ${
+                continuousMode ? 'bg-cyan-500' : 'bg-slate-600'
+              }`}>
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-200 ${
+                  continuousMode ? 'left-7' : 'left-1'
+                }`} />
+              </div>
+            </button>
           </motion.div>
 
           {/* Features */}
@@ -242,7 +277,7 @@ export default function PreferenceSelector({ onStart, loading }: PreferenceSelec
           {/* PRO Upgrade (for free users) */}
           {user && user.type === 'free' && (
             <motion.div 
-              variants={fadeInUp}
+              
               className="mb-8 p-5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-500/30"
             >
               <div className="flex items-start gap-4">

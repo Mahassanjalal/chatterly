@@ -20,7 +20,9 @@ import {
   Volume2,
   VolumeX,
   Clock,
-  Shield
+  Shield,
+  SkipForward,
+  Square
 } from "lucide-react";
 import EmojiPicker from "./EmojiPicker";
 import PreferenceSelector from "./PreferenceSelector";
@@ -28,7 +30,7 @@ import { isAuthenticated, getUser, getAuthToken } from "../utils/auth";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-type ChatState = 'preferences' | 'searching' | 'connected' | 'disconnected' | 'error';
+type ChatState = 'preferences' | 'searching' | 'connected' | 'disconnected' | 'error' | 'stopping';
 type ViewMode = 'video' | 'chat' | 'split';
 
 interface ChatMessage {
@@ -51,10 +53,18 @@ interface PlatformStats {
   };
 }
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  directConnectionIdProp?: string;
+  isDirectConnection?: boolean;
+}
+
+export default function ChatInterface({ 
+  directConnectionIdProp, 
+  isDirectConnection = false 
+}: ChatInterfaceProps) {
   const router = useRouter();
 
-  const [chatState, setChatState] = useState<ChatState>('preferences');
+  const [chatState, setChatState] = useState<ChatState>(isDirectConnection ? 'searching' : 'preferences');
   const [error, setError] = useState<string | null>(null);
   const [searchingMessage, setSearchingMessage] = useState("Looking for someone to chat with...");
   const [socketConnected, setSocketConnected] = useState(false);
@@ -90,7 +100,13 @@ export default function ChatInterface() {
   const [connectionQuality, setConnectionQuality] = useState<'good' | 'medium' | 'poor'>('good');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [searchTime, setSearchTime] = useState(0);
+  const [isContinuousMode, setIsContinuousMode] = useState(true);
+  const [userPreferences, setUserPreferences] = useState<{ gender: 'male' | 'female' | 'both' } | null>(null);
+  const [skipCount, setSkipCount] = useState(0);
+  const [isDirectMode, setIsDirectMode] = useState(isDirectConnection);
+  const [directConnectionId, setDirectConnectionId] = useState<string | null>(directConnectionIdProp || null);
 
+  const pendingSignalsRef = useRef<SimplePeer.SignalData[]>([])
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const peerRef = useRef<SimplePeer.Instance | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -124,6 +140,11 @@ export default function ChatInterface() {
       console.log('Socket connected successfully');
       setSocketConnected(true);
       setError(null);
+
+      // If we have a direct connection ID, start the direct call
+      if (directConnectionId && isDirectMode) {
+        socket.emit('start_direct_call', { connectionId: directConnectionId });
+      }
     });
 
     socket.on('connect_error', (err) => {
@@ -131,6 +152,12 @@ export default function ChatInterface() {
       setSocketConnected(false);
       setError('Connection error. Please refresh the page.');
       setChatState('error');
+      if(err.message === 'TokenExpired') {
+        setError('Session expired. Please log in again.');
+        setTimeout(() => {
+          router.push('/login');
+        }, 3000);
+      }
     });
 
     socket.on('disconnect', () => {
@@ -160,6 +187,15 @@ export default function ChatInterface() {
       searchTimerRef.current = setInterval(() => {
         setSearchTime(prev => prev + 1);
       }, 1000);
+      
+      // wait a moment and then call again with same preferences if in continuous mode
+      if (isContinuousMode) {
+        setTimeout(() => {
+          console.log('⏱️ Restarting search with same preferences:', userPreferences);
+          socketRef.current?.emit('search', userPreferences);
+        }, 1000);
+      }
+
     });
 
     socket.on('match_found', async (data) => {
@@ -195,13 +231,24 @@ export default function ChatInterface() {
     });
 
     socket.on('webrtc_signal', (signal) => {
+      // if (peerRef.current) {
+      //   peerRef.current.signal(signal);
+      // }
+      console.log('⬇️ received webrtc signal', signal)
+
       if (peerRef.current) {
-        peerRef.current.signal(signal);
+        peerRef.current.signal(signal)
+      } else {
+        pendingSignalsRef.current.push(signal)
       }
     });
 
     socket.on('call_ended', () => handleCallEnd('partner_left'));
     socket.on('match_ended', () => handleCallEnd('partner_left'));
+    socket.on('partner_skipped', () => {
+      // Partner skipped us, auto-restart if in continuous mode
+      handleCallEnd('partner_left');
+    });
 
     socket.on('match_error', (data) => {
       setError(data.message || 'Failed to find a match');
@@ -234,6 +281,42 @@ export default function ChatInterface() {
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('chatterly:notifications-list', { detail: data }));
       }
+    });
+
+    // Direct connection events
+    socket.on('connection_request_accepted', (data) => {
+      if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+
+      setDirectConnectionId(data.connectionId);
+      setIsDirectMode(true);
+      setPartnerName(data.partner?.name || 'User');
+      setChatState('connected');
+      setMessages([]);
+      setError(null);
+      setVideoStatus('connecting');
+      setViewMode('split');
+      setMatchStartTime(new Date());
+
+      initializeVideoCall(data.isInitiator, data.webrtcConfig);
+    });
+
+    socket.on('connection_accepted', (data) => {
+      if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+
+      setDirectConnectionId(data.connectionId);
+      setIsDirectMode(true);
+      setPartnerName(data.partner?.name || 'User');
+      setChatState('connected');
+      setMessages([]);
+      setError(null);
+      setVideoStatus('connecting');
+      setViewMode('split');
+      setMatchStartTime(new Date());
+
+      initializeVideoCall(data.isInitiator, data.webrtcConfig);
+
+      // Notify server that direct call is starting
+      socket.emit('start_direct_call', { connectionId: data.connectionId });
     });
 
     return () => {
@@ -274,70 +357,189 @@ export default function ChatInterface() {
   }, [messages, viewMode]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // const initializeVideoCall = useCallback(async (isInitiator: boolean, webrtcConfig?: any) => {
+  //   try {
+  //     console.log('🎬 Initializing call. Initiator:', isInitiator)
+  //     if (peerRef.current) {
+  //       peerRef.current.destroy();
+  //       peerRef.current = null;
+  //     }
+
+  //     const constraints = {
+  //       video: videoEnabled ? { width: 1280, height: 720 } : false,
+  //       audio: audioEnabled
+  //     };
+
+  //     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  //     streamRef.current = stream;
+
+  //     if (localVideoRef.current) {
+  //       localVideoRef.current.srcObject = stream;
+  //     }
+
+  //     const peerConfig: SimplePeer.Options = {
+  //       initiator: isInitiator,
+  //       trickle: true,
+  //       stream: stream,
+  //       config: {
+  //         iceServers: webrtcConfig?.iceServers || [
+  //           { urls: 'stun:stun.l.google.com:19302' },
+  //           { urls: 'stun:stun1.l.google.com:19302' },
+  //         ],
+  //         iceCandidatePoolSize: 10,
+  //       }
+  //     };
+
+  //     const peer = new SimplePeer(peerConfig);
+
+  //     peer.on('signal', (data: SimplePeer.SignalData) => {
+  //       socketRef.current?.emit('webrtc_signal', data);
+  //     });
+
+  //     peer.on('stream', (remoteStream: MediaStream) => {
+  //       if (remoteVideoRef.current) {
+  //         remoteVideoRef.current.srcObject = remoteStream;
+  //         setVideoStatus('connected');
+  //       }
+  //     });
+
+  //     peer.on('connect', () => {
+  //       setVideoStatus('connected');
+  //     });
+
+  //     peer.on('error', () => {
+  //       setVideoStatus('failed');
+  //       setError('Video connection failed. Please try again.');
+  //     });
+
+  //     peer.on('close', () => {
+  //       setVideoStatus('failed');
+  //     });
+
+  //     peerRef.current = peer;
+  //   } catch {
+  //     setVideoStatus('failed');
+  //     setError('Failed to access camera/microphone. Please check permissions.');
+  //   }
+  // }, [videoEnabled, audioEnabled]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const initializeVideoCall = useCallback(async (isInitiator: boolean, webrtcConfig?: any) => {
-    try {
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
+  try {
+    console.log('🎬 Initializing call. Initiator:', isInitiator)
 
-      const constraints = {
-        video: videoEnabled ? { width: 1280, height: 720 } : false,
-        audio: audioEnabled
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
-
-      const peerConfig: SimplePeer.Options = {
-        initiator: isInitiator,
-        trickle: true,
-        stream: stream,
-        config: {
-          iceServers: webrtcConfig?.iceServers || [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-          ],
-          iceCandidatePoolSize: 10,
-        }
-      };
-
-      const peer = new SimplePeer(peerConfig);
-
-      peer.on('signal', (data: SimplePeer.SignalData) => {
-        socketRef.current?.emit('webrtc_signal', data);
-      });
-
-      peer.on('stream', (remoteStream: MediaStream) => {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          setVideoStatus('connected');
-        }
-      });
-
-      peer.on('connect', () => {
-        setVideoStatus('connected');
-      });
-
-      peer.on('error', () => {
-        setVideoStatus('failed');
-        setError('Video connection failed. Please try again.');
-      });
-
-      peer.on('close', () => {
-        setVideoStatus('failed');
-      });
-
-      peerRef.current = peer;
-    } catch {
-      setVideoStatus('failed');
-      setError('Failed to access camera/microphone. Please check permissions.');
+    // cleanup old peer
+    if (peerRef.current) {
+      peerRef.current.destroy()
+      peerRef.current = null
     }
-  }, [videoEnabled, audioEnabled]);
+
+    // pendingSignalsRef.current = []
+    let stream;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: videoEnabled ? { width: 1280, height: 720 } : false,
+        audio: audioEnabled,
+      })
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    catch (err:any) {
+      if (err.name === 'NotReadableError') {
+        console.error('Camera busy, falling back to audio only')
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true,
+        });
+      } else {
+        throw err
+      }
+
+    }
+
+    streamRef.current = stream
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = stream
+      localVideoRef.current.muted = true
+      await localVideoRef.current.play().catch(() => {})
+    }
+
+    const peer = new SimplePeer({
+      initiator: Boolean(isInitiator),
+      trickle: true,
+      stream,
+      config: {
+        iceServers: webrtcConfig?.iceServers || [
+          { urls: 'stun:stun.l.google.com:19302' },
+
+          // 🚨 REQUIRED FOR PRODUCTION
+          // {
+          //   urls: 'turn:YOUR_TURN_SERVER:3478',
+          //   username: 'USERNAME',
+          //   credential: 'PASSWORD'
+          // }
+        ],
+      },
+    })
+
+    // ---- SIGNALING ----
+    peer.on('signal', (data) => {
+      console.log('⬆️ sending signal', data)
+      socketRef.current?.emit('webrtc_signal', data)
+    })
+
+    // ---- REMOTE STREAM ----
+    peer.on('stream', async (remoteStream) => {
+      console.log('🎥 remote stream received')
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream
+        remoteVideoRef.current.muted = false
+
+        try {
+          await remoteVideoRef.current.play()
+        } catch (err) {
+          console.warn('Autoplay blocked, waiting for user interaction')
+        }
+
+        setVideoStatus('connected')
+      }
+    })
+
+    // ---- CONNECTION EVENTS ----
+    peer.on('connect', () => {
+      console.log('✅ peer connected')
+      setVideoStatus('connected')
+    })
+
+    peer.on('iceStateChange', (state) => {
+      console.log('🧊 ICE state:', state)
+    })
+
+    peer.on('error', (err) => {
+      console.error('❌ peer error', err)
+      setVideoStatus('failed')
+    })
+
+    peer.on('close', () => {
+      console.log('🔌 peer closed')
+    })
+
+    peerRef.current = peer
+
+    // ---- APPLY BUFFERED SIGNALS ----
+    if (pendingSignalsRef.current.length) {
+      console.log('📥 applying buffered signals:', pendingSignalsRef.current.length)
+      pendingSignalsRef.current.forEach(signal => peer.signal(signal))
+      pendingSignalsRef.current = []
+    }
+
+  } catch (err) {
+    console.error('❌ getUserMedia failed', err)
+    setVideoStatus('failed')
+    setError('Failed to access camera or microphone')
+  }
+}, [videoEnabled, audioEnabled])
+
 
   const cleanupVideoCall = useCallback(() => {
     if (peerRef.current) {
@@ -362,15 +564,37 @@ export default function ChatInterface() {
     setVideoStatus('connecting');
   }, []);
 
-  const handleStartSearch = (preferences: { gender: 'male' | 'female' | 'both' }) => {
+  const handleStartSearch = (preferences: { gender: 'male' | 'female' | 'both' }, continuousMode: boolean = true) => {
     if (!socketConnected) {
       setError('Not connected to server. Please refresh the page.');
       return;
     }
+    setUserPreferences(preferences);
+    setIsContinuousMode(continuousMode);
     setChatState('searching');
     setError(null);
+    setSkipCount(0);
     socketRef.current?.emit('find_match', { preferredGender: preferences.gender });
   };
+
+  const restartSearch = useCallback(() => {
+    if (!socketConnected || !userPreferences) {
+      setError('Cannot restart search. Please try again.');
+      setChatState('disconnected');
+      return;
+    }
+    
+    cleanupVideoCall();
+    setChatState('searching');
+    setError(null);
+    setMatchId(null);
+    setPartnerName('Stranger');
+    setMessages([]);
+    setMatchStartTime(null);
+    setVideoStatus('connecting');
+    
+    socketRef.current?.emit('find_match', { preferredGender: userPreferences.gender });
+  }, [socketConnected, userPreferences, cleanupVideoCall]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -404,27 +628,99 @@ export default function ChatInterface() {
 
   const handleCallEnd = useCallback((reason?: string) => {
     cleanupVideoCall();
-    setChatState('disconnected');
     setMatchId(null);
     setPartnerName('Stranger');
     setMessages([]);
     setMatchStartTime(null);
 
-    if (reason === 'partner_left') {
-      setError('Your partner has left the chat');
+    if (isContinuousMode && userPreferences) {
+      // Auto-restart search in continuous mode
+      setTimeout(() => {
+        restartSearch();
+      }, 500);
+    } else {
+      setChatState('disconnected');
+      if (reason === 'partner_left') {
+        setError('Your partner has left the chat');
+      }
     }
-  }, [cleanupVideoCall]);
+  }, [cleanupVideoCall, isContinuousMode, userPreferences, restartSearch]);
 
   const handleEndCall = () => {
     socketRef.current?.emit('end_call');
     handleCallEnd();
   };
 
+  const handleSkipPartner = () => {
+    if (!matchId) return;
+    
+    setSkipCount(prev => prev + 1);
+    socketRef.current?.emit('skip_match', { matchId });
+    
+    // Clean up and restart search
+    cleanupVideoCall();
+    setChatState('searching');
+    setMatchId(null);
+    setPartnerName('Stranger');
+    setMessages([]);
+    setMatchStartTime(null);
+    setVideoStatus('connecting');
+    
+    // Restart search with same preferences
+    if (userPreferences) {
+      setTimeout(() => {
+        socketRef.current?.emit('find_match', { preferredGender: userPreferences.gender });
+      }, 300);
+    }
+  };
+
+  const handleStopChat = () => {
+    setIsContinuousMode(false);
+    socketRef.current?.emit('end_call');
+    cleanupVideoCall();
+    setChatState('stopping');
+    setMatchId(null);
+    setPartnerName('Stranger');
+    setMessages([]);
+    setMatchStartTime(null);
+    setUserPreferences(null);
+    setSkipCount(0);
+    
+    // If in direct mode, go back to users page
+    if (isDirectMode) {
+      setTimeout(() => {
+        router.push('/users');
+      }, 500);
+    } else {
+      // Brief delay then go to preferences
+      setTimeout(() => {
+        setChatState('preferences');
+        setError(null);
+        setViewMode('split');
+      }, 500);
+    }
+  };
+
   const handleNewChat = () => {
+    setIsContinuousMode(true);
+    setIsDirectMode(false);
+    setDirectConnectionId(null);
     setChatState('preferences');
     setError(null);
     setViewMode('split');
+    setUserPreferences(null);
+    setSkipCount(0);
   };
+
+  // Auto-restart search when disconnected in continuous mode
+  useEffect(() => {
+    if (chatState === 'disconnected' && isContinuousMode && userPreferences && socketConnected) {
+      const timer = setTimeout(() => {
+        restartSearch();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [chatState, isContinuousMode, userPreferences, socketConnected, restartSearch]);
 
   const toggleVideo = () => {
     if (streamRef.current) {
@@ -498,9 +794,20 @@ export default function ChatInterface() {
               animate={{ opacity: 1, y: 0 }}
               className="text-3xl font-bold text-white mt-6 mb-2"
             >
-              Finding your match...
+              {skipCount > 0 ? 'Finding next match...' : 'Finding your match...'}
             </motion.h2>
             <p className="text-slate-400">{searchingMessage}</p>
+            
+            {skipCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-full"
+              >
+                <SkipForward className="w-4 h-4 text-cyan-400" />
+                <span className="text-cyan-400 text-sm font-medium">Skipped {skipCount} {skipCount === 1 ? 'person' : 'people'}</span>
+              </motion.div>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-2 text-slate-400 mb-6">
@@ -532,14 +839,41 @@ export default function ChatInterface() {
             </motion.div>
           )}
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setChatState('preferences')}
-            className="text-slate-400 hover:text-cyan-400 transition-colors"
-          >
-            Cancel and change preferences
-          </motion.button>
+          <div className="flex flex-col gap-3">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleStopChat}
+              className="py-3 px-6 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 rounded-xl transition-colors font-medium"
+            >
+              Stop Matching
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setChatState('preferences')}
+              className="text-slate-400 hover:text-cyan-400 transition-colors"
+            >
+              Change preferences
+            </motion.button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (chatState === 'stopping') {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-4">
+        <div className="w-full max-w-md mx-auto text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full mx-auto mb-4"
+          />
+          <h2 className="text-2xl font-bold text-white mb-2">Stopping...</h2>
+          <p className="text-slate-400">Ending your chat session</p>
         </div>
       </div>
     );
@@ -713,11 +1047,38 @@ export default function ChatInterface() {
                 {remoteAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
               </motion.button>
 
+              {!isDirectMode && (
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSkipPartner}
+                  className="p-3 rounded-full bg-cyan-500 text-white hover:bg-cyan-600 transition-all flex items-center gap-2"
+                  title="Skip to next person"
+                >
+                  <SkipForward className="w-5 h-5" />
+                  <span className="hidden sm:inline text-sm font-medium">Skip</span>
+                </motion.button>
+              )}
+
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleStopChat}
+                className="p-3 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-all flex items-center gap-2"
+                title={isDirectMode ? "End call" : "Stop matching"}
+              >
+                <Square className="w-5 h-5" />
+                <span className="hidden sm:inline text-sm font-medium">
+                  {isDirectMode ? 'End' : 'Stop'}
+                </span>
+              </motion.button>
+
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleEndCall}
                 className="p-3 rounded-full bg-rose-500 text-white hover:bg-rose-600 transition-all"
+                title="End call"
               >
                 <PhoneOff className="w-5 h-5" />
               </motion.button>
@@ -741,14 +1102,27 @@ export default function ChatInterface() {
                   <p className="text-xs text-slate-400 flex items-center gap-1">
                     <Shield className="w-3 h-3" />
                     {formatElapsedTime(elapsedTime)}
+                    {isContinuousMode && (
+                      <span className="ml-2 px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-[10px]">
+                        Auto
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
-              {matchScore !== null && (
-                <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">
-                  {Math.round(matchScore * 100)}% Match
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {skipCount > 0 && (
+                  <span className="px-2 py-1 bg-slate-700 text-slate-300 text-xs rounded-full flex items-center gap-1">
+                    <SkipForward className="w-3 h-3" />
+                    {skipCount}
+                  </span>
+                )}
+                {matchScore !== null && (
+                  <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">
+                    {Math.round(matchScore * 100)}% Match
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 p-4 overflow-y-auto space-y-4">

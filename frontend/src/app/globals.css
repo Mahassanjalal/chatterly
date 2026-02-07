@@ -611,3 +611,7 @@ body {
     linear-gradient(to top, var(--background) 0%, transparent 10%);
   pointer-events: none;
 }
+
+video {
+  transform: scaleX(-1);
+}

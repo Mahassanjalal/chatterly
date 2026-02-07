@@ -23,6 +23,7 @@ import gdprRoutes from './routes/gdpr.routes'
 import blockingRoutes from './routes/blocking.routes'
 import notificationRoutes from './routes/notification.routes'
 import healthRoutes from './routes/health.routes'
+import directConnectionsRoutes from './routes/direct-connections.routes'
 
 // Create Express app
 const app = express()
@@ -47,13 +48,22 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", appConfig.cors.origin, "wss:", "https:"],
+      connectSrc: ["'self'", ...appConfig.cors.origin, "wss:", "https:"],
     },
   },
   crossOriginEmbedderPolicy: false,
 }))
 app.use(cors({
-  origin: appConfig.cors.origin,
+  // origin: appConfig.cors.origin,
+  origin: (origin, callback) => {
+      if (!origin) return callback(null, true)
+
+      if (appConfig.cors.origin.includes(origin)) {
+        return callback(null, true)
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`))
+    },
   credentials: true,
 }))
 app.use(compression())
@@ -71,6 +81,7 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/gdpr', gdprRoutes)
 app.use('/api/blocking', blockingRoutes)
 app.use('/api/notifications', notificationRoutes)
+app.use('/api/direct-connections', directConnectionsRoutes)
 
 // Health check routes (comprehensive health monitoring)
 app.use('/health', healthRoutes)

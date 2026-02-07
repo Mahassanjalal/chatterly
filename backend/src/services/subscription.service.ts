@@ -221,7 +221,7 @@ export class SubscriptionService {
    */
   async canPerformAction(
     userId: string,
-    action: 'match' | 'skip',
+    action: 'match' | 'skip' | 'direct_connection',
     currentCount?: number
   ): Promise<{ allowed: boolean; reason?: string; cooldown?: number }> {
     const subscription = await this.getUserSubscription(userId);
@@ -245,6 +245,10 @@ export class SubscriptionService {
           allowed: true,
           cooldown: features.skipCooldownSeconds,
         };
+      }
+      case 'direct_connection': {
+        // Direct connections available for all users, but pro users get priority
+        return { allowed: true };
       }
       default:
         return { allowed: true };
