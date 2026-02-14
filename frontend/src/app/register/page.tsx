@@ -101,7 +101,7 @@ export default function RegisterPage() {
               variants={fadeInUp}
               className="text-slate-300 text-lg mb-12 max-w-md"
             >
-              Start connecting with millions of people worldwide. It's free and takes less than a minute.
+              Start connecting with millions of people worldwide. It&apos;s free and takes less than a minute.
             </motion.p>
 
             {/* Feature List */}
@@ -122,7 +122,7 @@ export default function RegisterPage() {
               className="mt-12 p-6 rounded-2xl bg-slate-800/50 border border-slate-700"
             >
               <p className="text-slate-300 italic mb-4">
-                "I've made friends from all over the world. Best video chat platform I've ever used!"
+                &quot;I&apos;ve made friends from all over the world. Best video chat platform I&apos;ve ever used!&quot;
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-slate-900 font-bold">

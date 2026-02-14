@@ -593,7 +593,7 @@ export default function LandingPage() {
 
                 {/* Quote */}
                 <p className="text-xl md:text-2xl text-white mb-8 leading-relaxed">
-                  "{testimonials[activeTab].text}"
+                  {testimonials[activeTab].text}
                 </p>
 
                 {/* Author */}
@@ -640,7 +640,7 @@ export default function LandingPage() {
             </motion.h2>
             <motion.p variants={fadeInUp} className="text-slate-300 text-lg mb-8 max-w-2xl mx-auto">
               Join millions of people already connecting on Chatterly. 
-              It's free to start and takes less than a minute.
+              Its free to start and takes less than a minute.
             </motion.p>
             <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
