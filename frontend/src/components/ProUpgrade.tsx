@@ -56,7 +56,7 @@ export default function ProUpgrade({ user, onUserUpdate }: ProUpgradeProps) {
           >
             <Crown className="w-12 h-12 text-white" />
           </motion.div>
-          <h3 className="text-3xl font-bold text-white mb-2">You're Already PRO!</h3>
+          <h3 className="text-3xl font-bold text-white mb-2">You&apos;re Already PRO!</h3>
           <p className="text-slate-400">Thank you for supporting our platform</p>
         </div>
 
